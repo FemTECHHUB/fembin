@@ -9,7 +9,7 @@ extends the same posting path with a different party)
 
 ## Scope
 
-- [ ] Postgres schema: `credit_partners`, `credit_partner_bills` (PRD §12)
+- [ ] MySQL schema: `credit_partners`, `credit_partner_bills` (PRD §12)
 - [ ] `POST /api/v1/credit-partners` — creates the BUSY Account under a dedicated **"Credit
       Partners" Account Group**, with `BillByBillBalancing=True` (BUSY's own mechanism — do not
       build a parallel receivables system, use what BUSY already does for this)

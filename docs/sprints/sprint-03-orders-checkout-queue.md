@@ -8,7 +8,7 @@ queue. No payment or BUSY posting yet — this sprint is the order lifecycle up 
 
 ## Scope
 
-- [ ] Postgres schema: `orders`, `order_items` (PRD §6 data model)
+- [ ] MySQL schema: `orders`, `order_items` (PRD §6 data model)
 - [ ] `POST /api/v1/orders` — create order (items, branch, customer phone/name)
 - [ ] `GET /api/v1/orders?branch=&status=` — the Checkout Queue
 - [ ] `GET /api/v1/orders/lookup?phone=` — **this is the primary cashier handoff mechanism**,

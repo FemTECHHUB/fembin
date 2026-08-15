@@ -1,0 +1,10 @@
+<xml xmlns:s='uuid:BDC6E3F0-6DA3-11d1-A2A3-00AA00C14882'
+	xmlns:dt='uuid:C2F41010-65B3-11d1-A29F-00AA00C14882'
+	xmlns:rs='urn:schemas-microsoft-com:rowset'
+	xmlns:z='#RowsetSchema'>
+<rs:data>
+	<z:row Code='4021' Name='&#x27;ENAIBE L C (MRS)' Alias='' Stamp='2' BlockedMaster='False' DeactiveMaster='False'/>
+	<z:row Code='4022' Name='O&#39;Brien Chukwu' Alias='' Stamp='2' BlockedMaster='False' DeactiveMaster='False'/>
+	<z:row Code='4023' Name='Discontinued Supplier Ltd' Alias='' Stamp='3' BlockedMaster='True' DeactiveMaster='False'/>
+</rs:data>
+</xml>

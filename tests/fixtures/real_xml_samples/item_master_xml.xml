@@ -1,0 +1,24 @@
+<Item>
+  <Name>Cable-infinix Micro</Name>
+  <PrintName>Cable-infinix Micro</PrintName>
+  <ParentGroup>General</ParentGroup>
+  <MainUnit>Pcs.</MainUnit>
+  <AltUnit>Pcs.</AltUnit>
+  <ConversionFactor>1</ConversionFactor>
+  <ConFactorType>1</ConFactorType>
+  <SalePrice>1000</SalePrice>
+  <PackingUnitName>Pcs.</PackingUnitName>
+  <ConFactorPU>1</ConFactorPU>
+  <StockValMethod>5</StockValMethod>
+  <ItemSrNoType>1</ItemSrNoType>
+  <Address>
+    <OF></OF>
+    <TmpMasterCode>1613</TmpMasterCode>
+  </Address>
+  <CriticalLevels>True</CriticalLevels>
+  <PurchaseAccount>Purchase</PurchaseAccount>
+  <SalesAccount>Sales</SalesAccount>
+  <TaxCategory>&lt;&lt;---None---&gt;&gt;</TaxCategory>
+  <PercentOfAmount>100</PercentOfAmount>
+  <ItemBatchNoType>1</ItemBatchNoType>
+</Item>

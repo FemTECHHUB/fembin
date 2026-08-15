@@ -16,7 +16,7 @@ of the pilot — not just at pilot-branch scale.
       enough that per-item `GetMasterXML` calls are the bottleneck, decode `Master1`'s `D#`/`C#`
       columns for `MasterType=6` directly (turns N calls into 1 bulk query) — only do this if
       the data actually shows it's needed, don't pre-optimize
-- [ ] Postgres indexing pass on every synced table — `(busy_code)`, `(stamp)`,
+- [ ] MySQL indexing pass on every synced table — `(busy_code)`, `(stamp)`,
       `(material_center_code)`, `(date)` at minimum (PRD §11)
 - [ ] Queue-depth alerting validated under real multi-branch concurrent load, not just the
       pilot's lighter load from Sprint 5

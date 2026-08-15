@@ -74,7 +74,7 @@ flowchart TD
         API["REST API"]
         Queue[("Durable job queue")]
         Worker["Background worker(s)"]
-        DB[("Postgres — orders, loyalty, sync state, mirrors")]
+        DB[("MySQL — orders, loyalty, sync state, mirrors")]
     end
 
     BUSY["BUSY (port 981, whitelisted)"]
@@ -95,7 +95,7 @@ flowchart TD
 
 - **API** — synchronous, fast, talks only to `DB` (never blocks on BUSY directly except where noted in §7).
 - **Worker(s)** — drain the queue: BUSY sync (incremental, `Stamp`-based), voucher posting, WooCommerce push, Moniepoint polling.
-- **DB** — Postgres in production (SQLite was fine for the local prototype; Postgres for concurrent app access — see NFRs).
+- **DB** — MySQL in production (SQLite was fine for the local prototype; MySQL for concurrent app access — see NFRs).
 
 ---
 
@@ -260,7 +260,7 @@ amount posted to BUSY (as a Bill Sundry / discount line — same pattern as the 
 | `src/xmlUtil.js` (`parseRowsetXml`, `parseElementXml`) | `xml_util.py` (lxml/ElementTree) | Same two parser shapes, same entity-decoding fix (numeric refs!) |
 | `src/catalogSync.js` (`Stamp` checkpoint logic) | `sync/incremental.py` | Same `sync_state` table design, same `is_active` fix |
 | `src/wooClient.js` | `woo_client.py` | Same seed-mode safety net logic |
-| `catalog.db` (SQLite) | Postgres | Schema carries over near 1:1, adds `orders`/`loyalty_*`/`outbox` |
+| `catalog.db` (SQLite) | MySQL | Schema carries over near 1:1, adds `orders`/`loyalty_*`/`outbox` |
 | `public/index.html` command center | Internal ops/debug tool only — not the production app | Kept as-is for BUSY debugging |
 
 The Node prototype is **not thrown away** — it stays as the validated reference and the fastest
@@ -296,7 +296,7 @@ retail business at roughly 100× this volume.** That changes some engineering de
   per item was trivial. At ~800+, that's 800+ sequential calls just for the first full sync —
   worth the earlier-deferred effort of decoding what `D1..D26`/`C1..C7` mean for `MasterType=6`
   directly from bulk SQL, cutting N calls down to 1.
-- **Postgres indexing** on `(busy_code)`, `(stamp)`, `(material_center_code)`, `(date)` for every
+- **MySQL indexing** on `(busy_code)`, `(stamp)`, `(material_center_code)`, `(date)` for every
   synced table — not optional at this row count.
 - **Queue-depth alerting**, not just the queue itself — with ~200 branches posting concurrently,
   visibility into "is the backlog growing faster than BUSY can drain it" is a day-one requirement.
@@ -377,7 +377,7 @@ credit_partner_bills   (id PK, partner_id FK, busy_vch_code, amount, due_date,
 ## 13. Open Questions
 
 - ☐ Payment gateway for **online** (website) checkout — Paystack is off; nothing confirmed yet.
-- ☐ Postgres hosting target (same VPS as backend, or managed DB)?
+- ☐ MySQL hosting target (same VPS as backend, or managed DB)?
 - ☐ Loyalty redemption at POS: does it need cashier approval/limits, or fully self-service?
 - ☐ Who owns approving new-tier/new-rule changes in the loyalty admin UI?
 - ☐ Which credit partners are actually being signed (the 7 above are researched examples, not confirmed)?

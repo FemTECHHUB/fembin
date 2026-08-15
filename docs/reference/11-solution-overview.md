@@ -167,7 +167,7 @@ flowchart TD
 ## 8. Open items
 
 - ☐ Confirm connector runs on its own VPS; get the **VPS static IP whitelisted** on BUSY's port 981.
-- ☐ Choose the **cache database** (e.g. PostgreSQL) and the **sync interval**.
+- ☐ Choose the **cache database** (e.g. MySQL) and the **sync interval**.
 - ☐ Confirm reps capture the **customer phone number** on every order (needed for lookup).
 - ☐ Payment provider **API keys** + each **terminalSerial** (Moniepoint/Opay).
 - ☐ Per‑branch **Material Center** + **Voucher Series**, and BUSY **auto‑numbering** on.

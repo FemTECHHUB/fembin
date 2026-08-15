@@ -1,0 +1,15 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: fembin_root
+      MYSQL_USER: fembin
+      MYSQL_PASSWORD: fembin
+      MYSQL_DATABASE: fembin
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:

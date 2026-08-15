@@ -1,0 +1,103 @@
+<xml xmlns:s='uuid:BDC6E3F0-6DA3-11d1-A2A3-00AA00C14882'
+	xmlns:dt='uuid:C2F41010-65B3-11d1-A29F-00AA00C14882'
+	xmlns:rs='urn:schemas-microsoft-com:rowset'
+	xmlns:z='#RowsetSchema'>
+<s:Schema id='RowsetSchema'>
+	<s:ElementType name='row' content='eltOnly' rs:CommandTimeout='30'>
+		<s:AttributeType name='TABLE_NAME' rs:number='1' rs:writeunknown='true'>
+			<s:datatype dt:type='string' dt:maxLength='128' rs:maybenull='false'/>
+		</s:AttributeType>
+		<s:extends type='rs:rowbase'/>
+	</s:ElementType>
+</s:Schema>
+<rs:data>
+	<z:row TABLE_NAME='AccountFreezeConfig'/>
+	<z:row TABLE_NAME='AMCWarrDet'/>
+	<z:row TABLE_NAME='BillingDet'/>
+	<z:row TABLE_NAME='BRSOpBal'/>
+	<z:row TABLE_NAME='CheckList'/>
+	<z:row TABLE_NAME='CheckListNew'/>
+	<z:row TABLE_NAME='CheckListNewDet'/>
+	<z:row TABLE_NAME='CloudSyncIncr'/>
+	<z:row TABLE_NAME='CloudSyncIncrDet'/>
+	<z:row TABLE_NAME='CloudSyncStatus'/>
+	<z:row TABLE_NAME='Config'/>
+	<z:row TABLE_NAME='CSAuditLog'/>
+	<z:row TABLE_NAME='CSAuditLogDet'/>
+	<z:row TABLE_NAME='DailyMessage'/>
+	<z:row TABLE_NAME='DailySum'/>
+	<z:row TABLE_NAME='DataSync'/>
+	<z:row TABLE_NAME='DeletedInfo'/>
+	<z:row TABLE_NAME='DeletedMasters'/>
+	<z:row TABLE_NAME='EComOrderBody'/>
+	<z:row TABLE_NAME='EComOrderHeader'/>
+	<z:row TABLE_NAME='EcomSettlement'/>
+	<z:row TABLE_NAME='EcomSettlementExp'/>
+	<z:row TABLE_NAME='EcomSettlementItem'/>
+	<z:row TABLE_NAME='EcomSettlementItemExp'/>
+	<z:row TABLE_NAME='EmpLADet'/>
+	<z:row TABLE_NAME='EPaymentDet'/>
+	<z:row TABLE_NAME='EventLog'/>
+	<z:row TABLE_NAME='Excise'/>
+	<z:row TABLE_NAME='ExternalData'/>
+	<z:row TABLE_NAME='Folio1'/>
+	<z:row TABLE_NAME='GetGeneratedEWayBillDet'/>
+	<z:row TABLE_NAME='GSTInfo'/>
+	<z:row TABLE_NAME='GSTITCPendingVchDet'/>
+	<z:row TABLE_NAME='GSTR1Info'/>
+	<z:row TABLE_NAME='GSTR2AInfo'/>
+	<z:row TABLE_NAME='GSTR2BInfo'/>
+	<z:row TABLE_NAME='GSTR3BInfo'/>
+	<z:row TABLE_NAME='GSTR9Table8AInfo'/>
+	<z:row TABLE_NAME='Help1'/>
+	<z:row TABLE_NAME='Help1AddnInfo'/>
+	<z:row TABLE_NAME='Help2'/>
+	<z:row TABLE_NAME='Images'/>
+	<z:row TABLE_NAME='IMSInfo'/>
+	<z:row TABLE_NAME='ItemDesc'/>
+	<z:row TABLE_NAME='ItemParamDet'/>
+	<z:row TABLE_NAME='ItemSerialNo'/>
+	<z:row TABLE_NAME='ItemSNInstallDet'/>
+	<z:row TABLE_NAME='JobFinishedRefs'/>
+	<z:row TABLE_NAME='Locks'/>
+	<z:row TABLE_NAME='Master1'/>
+	<z:row TABLE_NAME='MasterAddressInfo'/>
+	<z:row TABLE_NAME='MasterSupport'/>
+	<z:row TABLE_NAME='MastFootPrint'/>
+	<z:row TABLE_NAME='OEDDet'/>
+	<z:row TABLE_NAME='OrgSalePurc'/>
+	<z:row TABLE_NAME='PackingDetails'/>
+	<z:row TABLE_NAME='Patches'/>
+	<z:row TABLE_NAME='PhyStkSubDet'/>
+	<z:row TABLE_NAME='POSDet'/>
+	<z:row TABLE_NAME='QueryLog'/>
+	<z:row TABLE_NAME='RepColSize'/>
+	<z:row TABLE_NAME='RepOptValues'/>
+	<z:row TABLE_NAME='ReportNotes'/>
+	<z:row TABLE_NAME='STDet'/>
+	<z:row TABLE_NAME='TCS'/>
+	<z:row TABLE_NAME='TDS'/>
+	<z:row TABLE_NAME='TradingExcise'/>
+	<z:row TABLE_NAME='Tran1'/>
+	<z:row TABLE_NAME='Tran10'/>
+	<z:row TABLE_NAME='Tran11'/>
+	<z:row TABLE_NAME='Tran12'/>
+	<z:row TABLE_NAME='Tran2'/>
+	<z:row TABLE_NAME='Tran3'/>
+	<z:row TABLE_NAME='Tran4'/>
+	<z:row TABLE_NAME='Tran5'/>
+	<z:row TABLE_NAME='Tran6'/>
+	<z:row TABLE_NAME='Tran7'/>
+	<z:row TABLE_NAME='Tran8'/>
+	<z:row TABLE_NAME='Tran9'/>
+	<z:row TABLE_NAME='VATInfo'/>
+	<z:row TABLE_NAME='VchDataMobileApp'/>
+	<z:row TABLE_NAME='VchGSTSumItemWise'/>
+	<z:row TABLE_NAME='VchOtherInfo'/>
+	<z:row TABLE_NAME='VchTemplate'/>
+	<z:row TABLE_NAME='VchTempTagging'/>
+	<z:row TABLE_NAME='VchVATAccInfo'/>
+	<z:row TABLE_NAME='VchVATSum'/>
+	<z:row TABLE_NAME='VchVATSumItemWise'/>
+</rs:data>
+</xml>

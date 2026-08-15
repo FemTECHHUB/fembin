@@ -9,7 +9,7 @@ a data change (an API call), never a code deploy.
 
 ## Scope
 
-- [ ] Postgres schema: `loyalty_customers`, `loyalty_tiers`, `loyalty_rules`, `loyalty_transactions` (PRD §7)
+- [ ] MySQL schema: `loyalty_customers`, `loyalty_tiers`, `loyalty_rules`, `loyalty_transactions` (PRD §7)
 - [ ] The **rules engine**: given a sale (branch, category, amount, date), find active
       `loyalty_rules` matching its scope, apply `formula_json`, compute points. This must be
       genuinely data-driven — no `if` statement encoding a specific points rate anywhere in the

@@ -1,0 +1,122 @@
+<xml xmlns:s='uuid:BDC6E3F0-6DA3-11d1-A2A3-00AA00C14882'
+	xmlns:dt='uuid:C2F41010-65B3-11d1-A29F-00AA00C14882'
+	xmlns:rs='urn:schemas-microsoft-com:rowset'
+	xmlns:z='#RowsetSchema'>
+<s:Schema id='RowsetSchema'>
+	<s:ElementType name='row' content='eltOnly' rs:CommandTimeout='30'>
+		<s:AttributeType name='COLUMN_NAME' rs:number='1' rs:nullable='true' rs:writeunknown='true'>
+			<s:datatype dt:type='string' dt:maxLength='128'/>
+		</s:AttributeType>
+		<s:AttributeType name='DATA_TYPE' rs:number='2' rs:nullable='true' rs:writeunknown='true'>
+			<s:datatype dt:type='string' dt:maxLength='128'/>
+		</s:AttributeType>
+		<s:extends type='rs:rowbase'/>
+	</s:ElementType>
+</s:Schema>
+<rs:data>
+	<z:row COLUMN_NAME='RecType' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='VchCode' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='MasterCode1' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='MasterCode2' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='SrNo' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='VchType' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='Date' DATA_TYPE='datetime'/>
+	<z:row COLUMN_NAME='VchNo' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='VchSeriesCode' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='Value1' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='Value2' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='Value3' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='Balance1' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='Balance2' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='Balance3' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='ItemBal1' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='ItemBal2' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='ItemBal3' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='CashFlow' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='ShortNar' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='D1' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D2' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D3' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D4' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D5' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D6' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D7' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D8' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D9' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D10' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D11' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D12' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D13' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D14' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D15' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D16' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D17' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D18' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D19' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D20' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D21' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D22' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D23' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D24' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D25' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D26' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D27' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D28' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D29' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D30' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D31' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D32' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D33' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D34' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D35' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D36' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D37' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D38' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='D39' DATA_TYPE='float'/>
+	<z:row COLUMN_NAME='I1' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='CM1' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM2' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM3' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM4' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM5' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM6' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM7' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM8' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM9' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM10' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM11' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='CM12' DATA_TYPE='int'/>
+	<z:row COLUMN_NAME='B1' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B2' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B3' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B4' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B5' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B6' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B7' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='B8' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='ClrDate' DATA_TYPE='datetime'/>
+	<z:row COLUMN_NAME='PriceCategory' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='CFMode' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='C1' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='C2' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='C3' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='C4' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='TranType' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='IsReturnQty' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='ReconStatus' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='I2' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I3' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I4' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I5' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I6' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I7' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I8' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I9' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='I10' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='TrackingStatus' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='TrackingNo' DATA_TYPE='nvarchar'/>
+	<z:row COLUMN_NAME='ConsignmentType' DATA_TYPE='smallint'/>
+	<z:row COLUMN_NAME='ConsignmentCleared' DATA_TYPE='bit'/>
+	<z:row COLUMN_NAME='EcomOrderItemID' DATA_TYPE='nvarchar'/>
+</rs:data>
+</xml>

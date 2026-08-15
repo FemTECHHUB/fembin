@@ -1,6 +1,6 @@
 # Sprint 1 — BUSY Read Layer + Incremental Sync (Catalog)
 
-**Goal:** products, categories, and material centers sync from BUSY into Postgres,
+**Goal:** products, categories, and material centers sync from BUSY into MySQL,
 incrementally, provably (repeat the "17.3s full → 2.2s no-op" proof from the prototype, in Python).
 
 **Depends on:** Sprint 0
@@ -8,7 +8,7 @@ incrementally, provably (repeat the "17.3s full → 2.2s no-op" proof from the p
 
 ## Scope
 
-- [ ] Postgres schema: `products`, `categories`, `material_centers`, `sync_state` (per PRD §5's data model)
+- [ ] MySQL schema: `products`, `categories`, `material_centers`, `sync_state` (per PRD §5's data model)
 - [ ] Port the `Stamp`-checkpoint mechanism from `catalogSync.js` (`get_last_stamp`/`set_last_stamp`) — same design, same `is_active`-not-delete rule (a real bug fix from the prototype — don't reintroduce it)
 - [ ] **Pagination from day one** — do NOT port the prototype's single unbounded query as-is. Even though the test company was small enough not to need it, PRD §11 already flags this as a retail-scale requirement. Window by `Stamp` ranges or `TOP N`, loop until exhausted.
 - [ ] Real Item field mapping — `SalePrice`, `MainUnit`, `ParentGroup`, `DoNotMaintainStkBal` (confirmed real names, see `docs/reference/12-schema-findings.md` — do not re-guess these)
@@ -31,4 +31,4 @@ incrementally, provably (repeat the "17.3s full → 2.2s no-op" proof from the p
       silently stale row and not a deleted row.
 - [ ] Pagination verified against a query returning more rows than one page size, in a test.
 - [ ] No endpoint in this sprint ever calls BUSY synchronously inside a request — all BUSY calls
-      happen in the scheduled sync job; API endpoints only ever read Postgres.
+      happen in the scheduled sync job; API endpoints only ever read MySQL.
