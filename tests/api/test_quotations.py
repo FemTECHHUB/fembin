@@ -49,3 +49,17 @@ def test_create_sale_quotation_is_idempotent(db_session: Session) -> None:
         first = client.post("/api/v1/quotations", json=_quotation_body("api-quote-dup"))
         second = client.post("/api/v1/quotations", json=_quotation_body("api-quote-dup"))
         assert first.json()["id"] == second.json()["id"]
+
+
+def test_list_sale_quotations_shows_status(db_session: Session) -> None:
+    with TestClient(app) as client:
+        first = client.post("/api/v1/quotations", json=_quotation_body("api-list-1"))
+        second = client.post("/api/v1/quotations", json=_quotation_body("api-list-2"))
+
+        list_resp = client.get("/api/v1/quotations")
+        assert list_resp.status_code == 200
+        jobs = list_resp.json()
+        ids = [j["id"] for j in jobs]
+        assert first.json()["id"] in ids
+        assert second.json()["id"] in ids
+        assert all(j["status"] == "queued" for j in jobs)

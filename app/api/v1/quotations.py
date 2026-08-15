@@ -6,9 +6,19 @@ from fastapi import APIRouter
 
 from app.api.v1.deps import DbSession
 from app.api.v1.schemas_outbox import OutboxJobOut, QuotationCreateRequest
-from app.domain.orders.quotations import QuotationItem, QuotationRequest, enqueue_sale_quotation
+from app.domain.orders.quotations import (
+    QuotationItem,
+    QuotationRequest,
+    enqueue_sale_quotation,
+    list_quotations,
+)
 
 router = APIRouter(prefix="/quotations", tags=["quotations"])
+
+
+@router.get("", response_model=list[OutboxJobOut])
+def list_sale_quotations_route(db: DbSession) -> list[OutboxJobOut]:
+    return [OutboxJobOut.model_validate(job) for job in list_quotations(db)]
 
 
 @router.post("", response_model=OutboxJobOut, status_code=202)

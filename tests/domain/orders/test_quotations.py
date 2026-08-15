@@ -20,6 +20,7 @@ from app.domain.orders.quotations import (
     _request_to_payload,
     build_quotation_xml,
     enqueue_sale_quotation,
+    list_quotations,
 )
 from app.outbox.models import OutboxStatus
 from app.outbox.queue import enqueue
@@ -149,3 +150,27 @@ async def test_worker_leaves_unknown_prefix_starting_at_one(
     assert processed is not None
     assert processed.result is not None
     assert processed.result["vch_no"] == "JCT-1"
+
+
+def test_list_quotations_returns_most_recent_first(db_session: Session) -> None:
+    first = enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-1")
+    second = enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-2")
+
+    jobs = list_quotations(db_session)
+
+    assert [j.id for j in jobs] == [second.id, first.id]
+    assert all(j.job_type == JOB_TYPE for j in jobs)
+
+
+async def test_list_quotations_reflects_status_after_processing(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-status")
+    await process_next_job(db_session, busy_client)
+
+    jobs = list_quotations(db_session)
+
+    assert len(jobs) == 1
+    assert jobs[0].status == OutboxStatus.DONE
+    assert jobs[0].result is not None
+    assert jobs[0].result["vch_no"] == "RCC-6"

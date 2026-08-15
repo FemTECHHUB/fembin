@@ -35,13 +35,23 @@ uv run uvicorn app.main:app --reload  # serves /health, the catalog read API, an
 ```
 
 Every real BUSY write goes through the outbox queue (`app/outbox/`), never inline from a
-request handler (CLAUDE.md §2.2). `POST /api/v1/quotations` enqueues a Sale Quotation;
-`GET /api/v1/outbox/{id}` shows what happened to any enqueued job. The outbox worker and
+request handler (CLAUDE.md §2.2). `POST /api/v1/quotations` enqueues a Sale Quotation
+(shape confirmed live 2026-08-15, see CLAUDE.md §8); `GET /api/v1/quotations` lists all of
+them with status (queued/running/done/failed) and the BUSY-assigned VchNo/VchCode once
+posted; `GET /api/v1/outbox/{id}` looks up any single enqueued job. The outbox worker and
 the catalog sync scheduler are both off by default per-process — set
-`OUTBOX_WORKER_ENABLED=true` / `CATALOG_SYNC_ENABLED=true` to run them. **The Sale
-Quotation XML shape is unverified against real BUSY** — see CLAUDE.md §8.
+`OUTBOX_WORKER_ENABLED=true` / `CATALOG_SYNC_ENABLED=true` to run them.
 
-Run lint / format / type-check: `uv run ruff check .`, `uv run black --check .`, `uv run mypy app tests`.
+Every HTTP request is access-logged (`app.access` logger: method, path, status, duration).
+Every catalog sync / outbox drain is logged per step with timing. Two ops scripts log a
+full listing directly rather than going through the API — useful for eyeballing state in
+the structured logs:
+```bash
+uv run python scripts/list_products.py     # every product in the local MySQL mirror
+uv run python scripts/list_quotations.py   # every Sale Quotation, with status
+```
+
+Run lint / format / type-check: `uv run ruff check .`, `uv run black --check .`, `uv run mypy app tests scripts`.
 
 Run the standalone mock BUSY server (for manually exercising `app/busy/client.py` without a real
 BUSY connection): `uv run python -m tests.fixtures.mock_busy` — listens on `127.0.0.1:8981`.

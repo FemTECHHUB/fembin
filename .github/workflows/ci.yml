@@ -48,7 +48,7 @@ jobs:
         run: uv run black --check .
 
       - name: Type check (mypy)
-        run: uv run mypy app tests
+        run: uv run mypy app tests scripts
 
       - name: Apply migrations
         run: uv run alembic upgrade head

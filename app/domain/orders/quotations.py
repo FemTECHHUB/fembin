@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.busy.client import BusyClient
@@ -136,6 +137,14 @@ def enqueue_sale_quotation(
         payload=_request_to_payload(request),
         idempotency_key=idempotency_key,
     )
+
+
+def list_quotations(session: Session) -> list[OutboxJob]:
+    """Every Sale Quotation ever enqueued, most recent first — status (queued/running/
+    done/failed) plus the BUSY-assigned VchNo/VchCode once processed, so a caller can
+    see exactly which ones have actually been posted vs. still pending."""
+    stmt = select(OutboxJob).where(OutboxJob.job_type == JOB_TYPE).order_by(OutboxJob.id.desc())
+    return list(session.scalars(stmt))
 
 
 async def _handle_add_sale_quotation(payload: dict[str, Any], busy: BusyClient) -> dict[str, Any]:
