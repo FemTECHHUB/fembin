@@ -8,6 +8,25 @@ on:
 jobs:
   lint-typecheck-test:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: fembin_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # Catalog sync tests (Sprint 1) run against a real MySQL, not a mock — only BUSY is mocked.
+      DATABASE_URL: mysql+pymysql://root:root@127.0.0.1:3306/fembin_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +49,9 @@ jobs:
 
       - name: Type check (mypy)
         run: uv run mypy app tests
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
 
       - name: Test (pytest, against the mock BUSY server — no live BUSY needed)
         run: uv run pytest

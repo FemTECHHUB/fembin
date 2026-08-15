@@ -16,30 +16,30 @@ prototype there proved the approach against live BUSY data and is not being thro
 ## Running locally
 
 Requires [`uv`](https://docs.astral.sh/uv/) and Docker. To install and run the test suite
-(uses the mock BUSY server — no live BUSY connection needed):
+(BUSY is mocked; the catalog sync tests do hit a real local MySQL — see
+`docs/sprints/sprint-01-busy-read-layer.md`):
 
 ```bash
 docker compose up -d                  # local MySQL on localhost:3307
 uv sync                               # install dependencies
+uv run alembic upgrade head           # apply migrations
 uv run pytest                         # run the test suite
 ```
 
-To also run the app against a real database and/or real BUSY:
+To also run the app itself (and/or against real BUSY):
 
 ```bash
 cp .env.example .env                  # fill in BUSY_USERNAME/BUSY_PASSWORD for live BUSY calls
-uv run alembic upgrade head           # apply migrations
-uv run uvicorn app.main:app --reload  # currently exposes only /health — no product-facing
-                                       # endpoints yet, see docs/sprints/sprint-00-foundations.md
+uv run uvicorn app.main:app --reload  # serves /health plus the catalog read API under /api/v1
 ```
 
-Run lint / format / type-check: `uv run ruff check .`, `uv run black --check .`, `uv run mypy app`.
+Run lint / format / type-check: `uv run ruff check .`, `uv run black --check .`, `uv run mypy app tests`.
 
 Run the standalone mock BUSY server (for manually exercising `app/busy/client.py` without a real
 BUSY connection): `uv run python -m tests.fixtures.mock_busy` — listens on `127.0.0.1:8981`.
 
 ## Status
 
-Sprint 0 (Foundations & Scaffolding) complete — see
-[`docs/sprints/sprint-00-foundations.md`](docs/sprints/sprint-00-foundations.md) for its
-Definition of Done. Next: Sprint 1, BUSY Read Layer + Incremental Sync (Catalog).
+Sprint 0 (Foundations & Scaffolding) and Sprint 1 (BUSY Read Layer + Incremental Sync,
+catalog) complete — see the respective sprint docs in `docs/sprints/` for each Definition
+of Done. Next: Sprint 2, Website Sync Completion (WooCommerce push).

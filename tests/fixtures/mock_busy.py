@@ -5,7 +5,7 @@ Ported from ``../Busin/code/busy-probe/src/mock-busy.js``. Mimics BUSY's shape: 
 recordset (or nested-element XML) in the body — same as the real `busy_client.py` expects.
 
 Run standalone:  python -m tests.fixtures.mock_busy   (listens on 127.0.0.1:8981)
-Or use `run_mock_busy_server()` as a pytest fixture — see tests/busy/conftest.py.
+Or use `run_mock_busy_server()` as a pytest fixture — see tests/conftest.py.
 """
 
 import os
@@ -16,6 +16,59 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
 DEFAULT_PORT = int(os.environ.get("MOCK_PORT", "8981"))
+
+# A larger dataset with deliberate Stamp ties (four rows share Stamp=10), used only when
+# the query includes "TOP" — i.e. requests from app/busy/pagination.py — to exercise real
+# multi-page, tie-boundary pagination against something resembling BUSY's actual coarse
+# Stamp granularity (CLAUDE.md §8), rather than trusting the pagination code untested.
+_PAGINATABLE_ITEMS: list[dict[str, str]] = [
+    {
+        "Code": str(code),
+        "Name": f"Paginated Item {code}",
+        "Stamp": stamp,
+        "BlockedMaster": blocked,
+        "DeactiveMaster": "False",
+    }
+    for code, stamp, blocked in [
+        (301, "10", "False"),
+        (302, "10", "False"),
+        (303, "10", "False"),
+        (304, "10", "False"),
+        (305, "20", "False"),
+        (306, "20", "False"),
+        (307, "30", "False"),
+        (308, "40", "True"),
+    ]
+]
+_PAGINATABLE_MATERIAL_CENTERS: list[dict[str, str]] = [
+    {
+        "Code": "201",
+        "Name": "Main Store",
+        "Alias": "MS",
+        "ParentGrp": "0",
+        "Stamp": "5",
+        "BlockedMaster": "False",
+        "DeactiveMaster": "False",
+    },
+    {
+        "Code": "202",
+        "Name": "Online Warehouse",
+        "Alias": "ONL",
+        "ParentGrp": "0",
+        "Stamp": "6",
+        "BlockedMaster": "False",
+        "DeactiveMaster": "False",
+    },
+]
+_PAGINATABLE_DATASETS: dict[int, list[dict[str, str]]] = {
+    6: _PAGINATABLE_ITEMS,
+    11: _PAGINATABLE_MATERIAL_CENTERS,
+}
+
+_TOP_RE = re.compile(r"SELECT TOP (\d+)")
+_MASTERTYPE_RE = re.compile(r"MasterType\s*=\s*(\d+)")
+_COMPOUND_CURSOR_RE = re.compile(r"AND \(Stamp > (-?\d+) OR \(Stamp = -?\d+ AND Code > (-?\d+)\)\)")
+_SIMPLE_CURSOR_RE = re.compile(r"AND Stamp > (-?\d+) ORDER BY")
 
 
 def _rowset(rows: list[dict[str, str]]) -> str:
@@ -64,6 +117,9 @@ class MockBusyHandler(BaseHTTPRequestHandler):
         self._respond(result="T", description=None, body=body)
 
     def _handle_query(self, qry: str) -> str:
+        top_match = _TOP_RE.search(qry)
+        if top_match:
+            return self._handle_paginated_query(qry, page_size=int(top_match.group(1)))
         if re.search(r"INFORMATION_SCHEMA\.TABLES", qry, re.IGNORECASE):
             return _rowset(
                 [{"TABLE_NAME": t} for t in ["Master1", "Master2", "Tran1", "Tran2", "Company"]]
@@ -121,6 +177,30 @@ class MockBusyHandler(BaseHTTPRequestHandler):
                 ]
             )
         return _rowset([{"VchNo": "1/2024-25"}, {"VchNo": "2/2024-25"}])
+
+    def _handle_paginated_query(self, qry: str, *, page_size: int) -> str:
+        """Honor the exact (Stamp, Code) keyset pagination shape app/busy/pagination.py
+        generates, against a fixed dataset with intentional Stamp ties."""
+        mt_match = _MASTERTYPE_RE.search(qry)
+        master_type = int(mt_match.group(1)) if mt_match else -1
+        dataset = _PAGINATABLE_DATASETS.get(master_type, [])
+
+        compound = _COMPOUND_CURSOR_RE.search(qry)
+        if compound:
+            cursor_stamp, cursor_code = int(compound.group(1)), int(compound.group(2))
+            rows = [
+                r
+                for r in dataset
+                if int(r["Stamp"]) > cursor_stamp
+                or (int(r["Stamp"]) == cursor_stamp and int(r["Code"]) > cursor_code)
+            ]
+        else:
+            simple = _SIMPLE_CURSOR_RE.search(qry)
+            since = int(simple.group(1)) if simple else -1
+            rows = [r for r in dataset if int(r["Stamp"]) > since]
+
+        rows.sort(key=lambda r: (int(r["Stamp"]), int(r["Code"])))
+        return _rowset(rows[:page_size])
 
     def _respond(self, *, result: str, description: str | None, body: str) -> None:
         encoded = body.encode("utf-8")

@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     busy_password: str = ""
     busy_timeout_seconds: float = 30.0
 
+    # Catalog sync (Sprint 1) — mirrors the prototype's config.sync.intervalMinutes.
+    # Disabled by default: if the API is ever scaled to multiple worker processes, only
+    # one of them should run the periodic scheduler, so this is opt-in per-process rather
+    # than always-on. The manual POST /api/v1/sync/products trigger works regardless.
+    catalog_sync_enabled: bool = False
+    catalog_sync_interval_seconds: float = 300.0
+
     # Logging
     log_level: str = "INFO"
 
