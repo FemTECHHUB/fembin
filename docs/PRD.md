@@ -54,7 +54,10 @@ shapes against live data. Section 9 (Migration Plan) covers what carries over.
 - **G4:** None of the above degrades reliability of BUSY itself — single-instance constraint respected via queueing and incremental sync throughout.
 
 ### Non-goals (this phase)
-- Stock-quantity sync (still blocked on deriving stock from transactions — `reference/12-schema-findings.md` §4).
+- Stock-quantity sync — the derivation *mechanism* was decoded 2026-08-15 against real
+  `Tran2` data (`app/domain/catalog/stock.py`, CLAUDE.md §8), but the resulting numbers
+  are unverified against BUSY's own GUI-displayed stock and nothing is wired into the
+  catalog sync yet. Still a non-goal for this phase until that verification happens.
 - Automated payment gateway (Paystack) integration — **TBD, not in this PRD's scope**.
 - Full accounting/reconciliation dashboards (designed conceptually in `10`, not built here).
 
@@ -391,5 +394,6 @@ credit_partner_bills   (id PK, partner_id FK, busy_vch_code, amount, due_date,
 - ☐ Who owns approving new-tier/new-rule changes in the loyalty admin UI?
 - ☐ Which credit partners are actually being signed (the 7 above are researched examples, not confirmed)?
 - ☐ Does each credit partner offer an API/webhook for approval + settlement reporting, or is it manual (CSV/portal) per partner?
-- ☐ Real BUSY write latency (`SC=2`) — still unmeasured; needed before committing to any retail-scale performance numbers.
-- ☐ Sale Quotation XML shape (`<SaleQuotation>`, `VchType=26`) — inferred by analogy to the confirmed Sale example, never posted against real BUSY. Verify with one real test post (see CLAUDE.md §8).
+- ☑ Real BUSY write latency (`SC=2`) — **measured 2026-08-15**: ~700-760ms write, ~1.2-1.3s round trip to confirmed-readable (Sale Quotation only, see CLAUDE.md §8). Still worth re-measuring for a real Sale (VchType=9) before Sprint 4, since that also posts ledger/stock updates a Quotation doesn't.
+- ☑ Sale Quotation XML shape (`<SaleQuotation>`, `VchType=26`) — **confirmed 2026-08-15** via a live test post (CLAUDE.md §8). Turned up a real bug (VchNo must be pre-computed for this company), now fixed.
+- ☐ Stock derivation from `Tran2` — mechanism decoded 2026-08-15 (`app/domain/catalog/stock.py`, CLAUDE.md §8) but the computed numbers have never been checked against BUSY's own GUI-displayed stock for any item. Needed before wiring this into the catalog sync.
