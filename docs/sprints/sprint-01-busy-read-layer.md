@@ -24,6 +24,15 @@ incrementally, provably (repeat the "17.3s full → 2.2s no-op" proof from the p
 
 ## Definition of Done
 
+**Live validation, 2026-08-15** (beyond this DoD's original mock-only bar — BUSY became
+reachable from the dev environment after this sprint was first closed; see
+`docs/sprints/sprint-00-foundations.md`): `run_catalog_sync(full=True)` against the real
+BUSY company synced 2 real Material Centers and 8 real products with zero failures in
+~11s total, correctly mapping real field names and `DoNotMaintainStkBal` (service items
+vs. physical Cable items), and correctly skipped the WooCommerce push (not configured)
+rather than failing. Confirms Sprint 1 works end-to-end against production data, not
+just the mock.
+
 - [x] First full sync and an immediate re-sync are both timed and logged — the second must show
       near-zero BUSY calls (mirroring the prototype's proof). This is a **required**, not
       optional, verification step before closing this sprint. (`tests/domain/catalog/test_scheduler.py`

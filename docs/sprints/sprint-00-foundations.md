@@ -34,15 +34,14 @@ tests — nothing product-facing yet, but the foundation everything else builds 
       weren't preserved as raw XML in the prototype's `output/` folder, only described in
       `docs/reference/14-command-center.md`, so those two specific fixtures are reconstructed
       from that write-up rather than copied byte-for-byte.)
-- [ ] `busy_client.py` successfully runs a live `SC=1` query against the test BUSY company
-      (manually verified once, not part of CI — CI uses the mock). **Not done** — credentials
-      recovered from the Node prototype's `config.json` (host `45.248.123.58:981`, same as
-      `docs/reference/12-schema-findings.md`) and placed in `.env` (gitignored, not committed),
-      but a raw TCP connect from this environment timed out (general internet egress confirmed
-      working via a separate test — this specific host/port is unreachable from here). Consistent
-      with the documented BUSY session-drop / firewall flakiness (CLAUDE.md §8), not necessarily
-      a code issue. `app/busy/client.py` is otherwise fully exercised against the mock server
-      (`tests/busy/test_client.py`). Needs a human on a network that can actually reach the BUSY
-      host — e.g. wherever the Node prototype was run from — to check this off.
+- [x] `busy_client.py` successfully runs a live `SC=1` query against the test BUSY company
+      (manually verified once, not part of CI — CI uses the mock). **Done 2026-08-15** — port
+      981 became reachable from this environment (it wasn't earlier in this sprint; see the
+      history above, left intentionally rather than deleted). Live query via
+      `BusyClient.run_query`: `SELECT TOP 3 Code, Name FROM Master1 WHERE MasterType = 11`
+      returned real data — `[{'Code': '201', 'Name': 'Main Store'}, {'Code': '1155', 'Name':
+      'Repair Centre Taiwo'}]` — confirming the client, the pagination-style `SELECT TOP N`
+      query shape, and `parse_rowset_xml` all work end-to-end against real BUSY, not just the
+      mock.
 - [x] `ruff` / `mypy` clean, no `# type: ignore` without a comment explaining why.
 - [x] README explains how to run the project locally in under 5 commands.
