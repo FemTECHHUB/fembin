@@ -40,6 +40,6 @@ BUSY connection): `uv run python -m tests.fixtures.mock_busy` — listens on `12
 
 ## Status
 
-Sprint 0 (Foundations & Scaffolding) and Sprint 1 (BUSY Read Layer + Incremental Sync,
-catalog) complete — see the respective sprint docs in `docs/sprints/` for each Definition
-of Done. Next: Sprint 2, Website Sync Completion (WooCommerce push).
+Sprints 0-2 complete (Foundations, BUSY Read Layer + Incremental Sync, Website/WooCommerce
+Sync) — see the respective sprint docs in `docs/sprints/` for each Definition of Done. Next:
+Sprint 3, Orders & Checkout Queue.

@@ -71,6 +71,27 @@ class Product(Base):
     tracks_stock: Mapped[bool] = mapped_column(default=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     woo_product_id: Mapped[int | None] = mapped_column(default=None)
+    # The price value last successfully pushed to WooCommerce — compared against `price`
+    # to decide whether a live update is needed, independent of BUSY's Stamp (Sprint 2).
+    woo_synced_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), default=None)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class WooSyncState(Base):
+    """Singleton row (id=1) — the WooCommerce push's own state, separate from the BUSY-side
+    `sync_state` checkpoints: the one-time seed-import opt-in (CLAUDE.md-style deliberate
+    safety net, ported from the prototype's `state.json.seeded`) and the last push result,
+    for `GET /api/v1/sync/status` to show."""
+
+    __tablename__ = "woo_sync_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    seeded: Mapped[bool] = mapped_column(default=False)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    last_seeded: Mapped[int] = mapped_column(default=0)
+    last_created: Mapped[int] = mapped_column(default=0)
+    last_updated: Mapped[int] = mapped_column(default=0)
+    last_skipped: Mapped[int] = mapped_column(default=0)
+    last_failed: Mapped[int] = mapped_column(default=0)

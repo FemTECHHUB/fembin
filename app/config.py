@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     catalog_sync_enabled: bool = False
     catalog_sync_interval_seconds: float = 300.0
 
+    # WooCommerce REST API (Sprint 2) — dedicated Read/Write key, not an admin's (PRD §6).
+    # Left blank, the woo-push step is skipped entirely rather than failing the whole sync.
+    woo_site_url: str = ""
+    woo_consumer_key: str = ""
+    woo_consumer_secret: str = ""
+    woo_new_product_status: str = "private"
+
     # Logging
     log_level: str = "INFO"
 

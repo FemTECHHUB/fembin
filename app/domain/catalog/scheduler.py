@@ -8,24 +8,35 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from app.busy.client import BusyClient
 from app.config import Settings
 from app.domain.catalog.sync import SyncResult, sync_material_centers, sync_products
+from app.domain.catalog.woo_sync import WooPushResult, push_products_to_woocommerce
+from app.integrations.woocommerce import WooCommerceClient
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class CatalogSyncRunResult:
+    busy: list[SyncResult]
+    woo: WooPushResult | None
+
+
 async def run_catalog_sync(
     session_factory: Callable[[], Session], settings: Settings, *, full: bool = False
-) -> list[SyncResult]:
-    """Run one full catalog sync pass (material centers, then products). Each entity is
-    its own DB transaction (app/domain/catalog/sync.py) — a failure in one doesn't roll
-    back the other. Timed and logged per entity — this is how the "full sync then
-    near-zero no-op re-sync" proof (Sprint 1 DoD) gets verified."""
-    results: list[SyncResult] = []
+) -> CatalogSyncRunResult:
+    """Run one full catalog sync pass: BUSY pull (material centers, then products), then
+    a WooCommerce push (Sprint 2) — skipped entirely, not failed, if WooCommerce isn't
+    configured (`woo_site_url` blank). Each step is its own DB transaction
+    (app/domain/catalog/sync.py, app/domain/catalog/woo_sync.py) — a failure in one
+    doesn't roll back the others. Timed and logged per step — this is how the "full sync
+    then near-zero no-op re-sync" proof (Sprint 1 DoD) gets verified."""
+    busy_results: list[SyncResult] = []
     async with BusyClient.from_settings(settings) as client:
         for sync_fn in (sync_material_centers, sync_products):
             session = session_factory()
@@ -49,8 +60,38 @@ async def run_catalog_sync(
                 result.incremental,
                 elapsed,
             )
-            results.append(result)
-    return results
+            busy_results.append(result)
+
+    woo_result: WooPushResult | None = None
+    if settings.woo_site_url:
+        session = session_factory()
+        start = time.monotonic()
+        try:
+            async with WooCommerceClient.from_settings(settings) as woo:
+                woo_result = await push_products_to_woocommerce(
+                    session, woo, new_product_status=settings.woo_new_product_status
+                )
+        except Exception:
+            session.rollback()
+            logger.exception("WooCommerce push failed")
+            raise
+        finally:
+            session.close()
+        elapsed = time.monotonic() - start
+        logger.info(
+            "Catalog sync: entity=woocommerce seeded=%d created=%d updated=%d "
+            "skipped=%d failed=%d elapsed=%.2fs",
+            woo_result.seeded,
+            woo_result.created,
+            woo_result.updated,
+            woo_result.skipped,
+            woo_result.failed,
+            elapsed,
+        )
+    else:
+        logger.info("Catalog sync: WooCommerce not configured, skipping push")
+
+    return CatalogSyncRunResult(busy=busy_results, woo=woo_result)
 
 
 async def catalog_sync_loop(

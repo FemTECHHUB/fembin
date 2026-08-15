@@ -51,3 +51,20 @@ class SyncStatusEntryOut(BaseModel):
     entity: str
     last_stamp: int
     updated_at: datetime
+
+
+class WooSyncStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    seeded: bool
+    last_run_at: datetime | None
+    last_seeded: int
+    last_created: int
+    last_updated: int
+    last_skipped: int
+    last_failed: int
+
+
+class SyncStatusResponse(BaseModel):
+    busy: list[SyncStatusEntryOut]
+    woocommerce: WooSyncStatusOut
