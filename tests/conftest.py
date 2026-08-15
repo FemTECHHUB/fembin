@@ -23,6 +23,7 @@ from app.config import Settings
 from app.db.models import Category, MaterialCenter, Product, SyncState, WooSyncState
 from app.db.session import SessionLocal
 from app.integrations.woocommerce import WooCommerceClient
+from app.outbox.models import OutboxJob
 from tests.fixtures.mock_busy import run_mock_busy_server
 from tests.fixtures.mock_busy import server_host_port as busy_server_host_port
 from tests.fixtures.mock_woo import MockWooServer, run_mock_woo_server
@@ -87,6 +88,7 @@ def _clean_catalog_tables(session: Session) -> None:
     session.query(MaterialCenter).delete()
     session.query(SyncState).delete()
     session.query(WooSyncState).delete()
+    session.query(OutboxJob).delete()
     session.commit()
 
 

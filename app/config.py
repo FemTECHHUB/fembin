@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     woo_consumer_secret: str = ""
     woo_new_product_status: str = "private"
 
+    # Outbox worker — every BUSY write goes through this queue (CLAUDE.md §2.2). Off by
+    # default per-process, same multi-worker-process reasoning as catalog_sync_enabled.
+    outbox_worker_enabled: bool = False
+    outbox_worker_interval_seconds: float = 5.0
+
     # Logging
     log_level: str = "INFO"
 

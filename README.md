@@ -30,8 +30,16 @@ To also run the app itself (and/or against real BUSY):
 
 ```bash
 cp .env.example .env                  # fill in BUSY_USERNAME/BUSY_PASSWORD for live BUSY calls
-uv run uvicorn app.main:app --reload  # serves /health plus the catalog read API under /api/v1
+uv run uvicorn app.main:app --reload  # serves /health, the catalog read API, and the
+                                       # outbox/quotations endpoints under /api/v1
 ```
+
+Every real BUSY write goes through the outbox queue (`app/outbox/`), never inline from a
+request handler (CLAUDE.md §2.2). `POST /api/v1/quotations` enqueues a Sale Quotation;
+`GET /api/v1/outbox/{id}` shows what happened to any enqueued job. The outbox worker and
+the catalog sync scheduler are both off by default per-process — set
+`OUTBOX_WORKER_ENABLED=true` / `CATALOG_SYNC_ENABLED=true` to run them. **The Sale
+Quotation XML shape is unverified against real BUSY** — see CLAUDE.md §8.
 
 Run lint / format / type-check: `uv run ruff check .`, `uv run black --check .`, `uv run mypy app tests`.
 

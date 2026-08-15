@@ -7,33 +7,49 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.v1 import categories, material_centers, products, sync
+from app.api.v1 import categories, material_centers, outbox, products, quotations, sync
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.domain.catalog.scheduler import catalog_sync_loop
 from app.logging_config import request_id_var, setup_logging
+from app.outbox.worker import outbox_worker_loop
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     stop_event = asyncio.Event()
-    task: asyncio.Task[None] | None = None
+    tasks: list[asyncio.Task[None]] = []
+
     if settings.catalog_sync_enabled:
-        task = asyncio.create_task(
-            catalog_sync_loop(
-                SessionLocal,
-                settings,
-                interval_seconds=settings.catalog_sync_interval_seconds,
-                stop_event=stop_event,
+        tasks.append(
+            asyncio.create_task(
+                catalog_sync_loop(
+                    SessionLocal,
+                    settings,
+                    interval_seconds=settings.catalog_sync_interval_seconds,
+                    stop_event=stop_event,
+                )
             )
         )
+    if settings.outbox_worker_enabled:
+        tasks.append(
+            asyncio.create_task(
+                outbox_worker_loop(
+                    SessionLocal,
+                    settings,
+                    interval_seconds=settings.outbox_worker_interval_seconds,
+                    stop_event=stop_event,
+                )
+            )
+        )
+
     try:
         yield
     finally:
-        if task is not None:
+        if tasks:
             stop_event.set()
-            await task
+            await asyncio.gather(*tasks)
 
 
 def create_app() -> FastAPI:
@@ -65,6 +81,8 @@ def create_app() -> FastAPI:
     app.include_router(categories.router, prefix="/api/v1")
     app.include_router(material_centers.router, prefix="/api/v1")
     app.include_router(sync.router, prefix="/api/v1")
+    app.include_router(quotations.router, prefix="/api/v1")
+    app.include_router(outbox.router, prefix="/api/v1")
 
     return app
 

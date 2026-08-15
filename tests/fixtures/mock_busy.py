@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from typing import Any
 
 DEFAULT_PORT = int(os.environ.get("MOCK_PORT", "8981"))
 
@@ -83,7 +84,18 @@ def _rowset(rows: list[dict[str, str]]) -> str:
     )
 
 
+class MockBusyServer(ThreadingHTTPServer):
+    """Adds the in-memory voucher store SC=2 (AddVoucher) mutates."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.next_vch_code = 90000
+        self.created_vouchers: list[dict[str, str]] = []
+
+
 class MockBusyHandler(BaseHTTPRequestHandler):
+    server: MockBusyServer  # narrows the inherited handler's `server` attribute
+
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - stdlib signature
         pass  # keep test output quiet; failures still surface via assertions
 
@@ -100,6 +112,21 @@ class MockBusyHandler(BaseHTTPRequestHandler):
         body = "<Ok/>"
         if sc == "1":
             body = self._handle_query(qry)
+        elif sc == "2":
+            vch_xml = headers.get("VchXml", "")
+            if "FORCE_FAIL" in vch_xml:
+                self._respond(result="F", description="Simulated AddVoucher failure", body="")
+                return
+            self.server.next_vch_code += 1
+            new_vch_code = self.server.next_vch_code
+            self.server.created_vouchers.append(
+                {
+                    "VchType": headers.get("VchType", ""),
+                    "VchXml": vch_xml,
+                    "VchCode": str(new_vch_code),
+                }
+            )
+            body = str(new_vch_code)
         elif sc == "9":
             code = headers.get("MasterCode", "0")
             price = os.environ.get("MOCK_ITEM101_PRICE", "1000") if code == "101" else "1000"
@@ -222,9 +249,9 @@ def server_host_port(server: ThreadingHTTPServer) -> tuple[str, int]:
 
 
 @contextmanager
-def run_mock_busy_server(host: str = "127.0.0.1", port: int = 0) -> Iterator[ThreadingHTTPServer]:
+def run_mock_busy_server(host: str = "127.0.0.1", port: int = 0) -> Iterator[MockBusyServer]:
     """Start the mock BUSY server on a background thread; ``port=0`` picks a free port."""
-    server = ThreadingHTTPServer((host, port), MockBusyHandler)
+    server = MockBusyServer((host, port), MockBusyHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

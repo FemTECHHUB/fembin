@@ -2,6 +2,9 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+# Every module that defines ORM models must be imported so Base.metadata knows about
+# them before autogenerate runs — app.db.models itself only holds the catalog tables.
+import app.outbox.models  # noqa: E402,F401
 from alembic import context
 from app.config import get_settings
 from app.db.models import Base

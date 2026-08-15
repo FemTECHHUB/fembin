@@ -204,6 +204,7 @@ Condensed from the research phase so nothing here gets silently re-discovered:
 | BUSY session drops | The company-open session on the BUSY desktop app has dropped repeatedly and unpredictably during research (not a code bug). Sprint 5's runbook exists because of this — expect it, monitor for it, don't assume a `Please open a company` error means our code is wrong. |
 | One BUSY instance, no proven write concurrency | Never assume BUSY handles concurrent writes gracefully — we have no data on this. This is *why* the outbox queue exists. |
 | Real confirmed Item field names | `Name`, `SalePrice`, `MainUnit`, `ParentGroup`, `DoNotMaintainStkBal` — confirmed against live data. Do not use `Price`/`Unit`/`ItemGroup` (earlier, wrong guesses). |
+| Sale Quotation XML shape is **unverified** | `app/domain/orders/quotations.py`'s `build_quotation_xml` (`VchType=26`) was written by analogy to the one confirmed Sale example (`docs/reference/04-examples.md` §4.3) — same `<ItemEntries>`/`<ItemDetail>` shape, root tag guessed as `<SaleQuotation>`. Never posted against a real BUSY company. Verify with one real test post (same "post one real test voucher" recommendation PRD §11 makes for Sale) before trusting this in production, and update this row once confirmed. |
 
 ---
 

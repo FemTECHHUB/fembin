@@ -149,6 +149,15 @@ Moniepoint push is a row here first, so a crash mid-post never loses or duplicat
 (`idempotency_key` = order code, matching the pattern already proven for Moniepoint's
 `merchantReference`).
 
+**Built ahead of schedule:** a minimal version of `outbox` (generic `job_type`/`payload`
+dispatch, currently just `"add_voucher"`) plus `POST /api/v1/quotations` (Sale Quotation,
+`VchType=26`) and `GET /api/v1/outbox/{id}` exist already, built ad hoc at explicit
+request rather than in this feature's normal Sprint 3/4 sequence — see
+`app/outbox/`, `app/domain/orders/quotations.py`. The Sale Quotation XML shape is
+**unverified** against real BUSY (CLAUDE.md §8 tracks this). Orders/payments/vouchers
+below are still unbuilt; the outbox worker is generic enough that Sprint 3/4 should
+extend it, not replace it.
+
 ### API endpoints
 
 **Orders (sales rep)**
@@ -383,3 +392,4 @@ credit_partner_bills   (id PK, partner_id FK, busy_vch_code, amount, due_date,
 - ☐ Which credit partners are actually being signed (the 7 above are researched examples, not confirmed)?
 - ☐ Does each credit partner offer an API/webhook for approval + settlement reporting, or is it manual (CSV/portal) per partner?
 - ☐ Real BUSY write latency (`SC=2`) — still unmeasured; needed before committing to any retail-scale performance numbers.
+- ☐ Sale Quotation XML shape (`<SaleQuotation>`, `VchType=26`) — inferred by analogy to the confirmed Sale example, never posted against real BUSY. Verify with one real test post (see CLAUDE.md §8).

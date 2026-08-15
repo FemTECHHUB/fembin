@@ -7,9 +7,12 @@ including the service code and any XML payload — are sent as request
 header (``"T"``/``"F"``), a ``Description`` header (error text when
 ``Result="F"``), and the data in the response body.
 
-Read-only this sprint (SC=1, 8, 9) — see CLAUDE.md §2.2: every BUSY *write*
-(SC=2/5/6/7) must go through the outbox queue, never be called inline from
-here, so those methods are intentionally not implemented yet.
+Mostly read-only (SC=1, 8, 9). `add_voucher` (SC=2) is the one write method —
+see CLAUDE.md §2.2: every BUSY write goes through the outbox queue
+(app/outbox/), never called inline from a request handler. This client
+doesn't enforce that itself; only app/outbox/worker.py may call
+`add_voucher`. SC=5/6/7 (add/modify master) remain unimplemented — nothing
+in this codebase needs them yet.
 """
 
 from dataclasses import dataclass
@@ -113,4 +116,16 @@ class BusyClient:
         )
         if response.result != "T":
             raise BusyError("GetVchXML", response)
+        return response.body
+
+    async def add_voucher(self, vch_type: int, vch_xml: str) -> str:
+        """SC=2 — insert a new voucher; returns the new Voucher Code BUSY assigns.
+
+        Only the outbox worker (app/outbox/worker.py) may call this — CLAUDE.md §2.2,
+        every BUSY write goes through the queue, no exceptions."""
+        response = await self._call(
+            {"SC": str(ServiceCode.ADD_VOUCHER), "VchType": str(vch_type), "VchXml": vch_xml}
+        )
+        if response.result != "T":
+            raise BusyError("AddVoucher", response)
         return response.body
