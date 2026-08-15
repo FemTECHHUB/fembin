@@ -71,6 +71,13 @@ _MASTERTYPE_RE = re.compile(r"MasterType\s*=\s*(\d+)")
 _COMPOUND_CURSOR_RE = re.compile(r"AND \(Stamp > (-?\d+) OR \(Stamp = -?\d+ AND Code > (-?\d+)\)\)")
 _SIMPLE_CURSOR_RE = re.compile(r"AND Stamp > (-?\d+) ORDER BY")
 
+# app/busy/vch_numbering.py's next-VchNo lookup — fake existing numbers for "RCC" so
+# tests exercise the real max+1 logic, not just the empty-ledger "prefix-1" case.
+_VCHNO_LOOKUP_RE = re.compile(r"LTRIM\(VchNo\)\s+LIKE\s+'([^']+)-%'")
+_FAKE_EXISTING_VCH_NOS: dict[str, list[str]] = {
+    "RCC": ["RCC-1", "RCC-2", "RCC-5"],
+}
+
 
 def _rowset(rows: list[dict[str, str]]) -> str:
     """Wrap rows in the real ADO 'persist XML' rowset shape so xml_util.parse_rowset_xml
@@ -147,6 +154,11 @@ class MockBusyHandler(BaseHTTPRequestHandler):
         top_match = _TOP_RE.search(qry)
         if top_match:
             return self._handle_paginated_query(qry, page_size=int(top_match.group(1)))
+        vchno_match = _VCHNO_LOOKUP_RE.search(qry)
+        if vchno_match:
+            prefix = vchno_match.group(1)
+            existing = _FAKE_EXISTING_VCH_NOS.get(prefix, [])
+            return _rowset([{"VchNo": v} for v in existing])
         if re.search(r"INFORMATION_SCHEMA\.TABLES", qry, re.IGNORECASE):
             return _rowset(
                 [{"TABLE_NAME": t} for t in ["Master1", "Master2", "Tran1", "Tran2", "Company"]]

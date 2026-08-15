@@ -24,6 +24,9 @@ class QuotationCreateRequest(BaseModel):
     # (CLAUDE.md §2.2).
     idempotency_key: str
     vch_series_name: str = "Main"
+    # e.g. "RCC" for the "Main" series — company-specific and not derivable from BUSY
+    # (CLAUDE.md §8), so there's no safe default; the caller must know their own prefix.
+    vch_no_prefix: str
     date: str  # DD-MM-YYYY
     sale_type_name: str
     customer_name: str

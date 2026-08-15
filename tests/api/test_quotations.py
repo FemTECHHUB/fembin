@@ -11,8 +11,9 @@ from app.main import app
 def _quotation_body(idempotency_key: str) -> dict[str, object]:
     return {
         "idempotency_key": idempotency_key,
+        "vch_no_prefix": "RCC",
         "date": "15-08-2026",
-        "sale_type_name": "Local-ItemWise",
+        "sale_type_name": "Repair",
         "customer_name": "Amit Gupta",
         "material_center_name": "Main Store",
         "items": [

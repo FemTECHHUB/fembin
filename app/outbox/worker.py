@@ -28,14 +28,25 @@ logger = logging.getLogger(__name__)
 JobHandler = Callable[[dict[str, Any], BusyClient], Awaitable[dict[str, Any]]]
 
 
+_HANDLERS: dict[str, JobHandler] = {}
+
+
+def register_handler(job_type: str, handler: JobHandler) -> None:
+    """Domain modules register their own job handlers here at import time (e.g.
+    app/domain/orders/quotations.py registers "add_sale_quotation") rather than this
+    module importing domain code — keeps the dependency direction domain -> outbox,
+    never outbox -> domain (CLAUDE.md §2.1, one direction of dependency)."""
+    _HANDLERS[job_type] = handler
+
+
 async def _handle_add_voucher(payload: dict[str, Any], busy: BusyClient) -> dict[str, Any]:
+    """Generic: the payload already carries a fully-built VchXml, so this needs no
+    domain knowledge and stays built in rather than registered."""
     vch_code = await busy.add_voucher(int(payload["vch_type"]), str(payload["vch_xml"]))
     return {"vch_code": vch_code}
 
 
-_HANDLERS: dict[str, JobHandler] = {
-    "add_voucher": _handle_add_voucher,
-}
+register_handler("add_voucher", _handle_add_voucher)
 
 
 async def process_next_job(session: Session, busy: BusyClient) -> OutboxJob | None:

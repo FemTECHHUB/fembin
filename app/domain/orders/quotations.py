@@ -1,28 +1,39 @@
 """Sale Quotations (BUSY VchType=26) — a quote sent to a customer, not yet a sale.
 
-⚠️ UNVERIFIED XML SHAPE. Unlike Sale (VchType=9, confirmed against real BUSY data —
-docs/reference/04-examples.md §4.3), no real Sale Quotation XML has ever been captured
-or posted against live BUSY. `build_quotation_xml` below is inferred by analogy to that
-one confirmed Sale example — same `<ItemEntries>`/`<ItemDetail>` shape, tax/discount
-fields omitted since those would be pure guessing on top of an already-unverified base —
-with only the root tag swapped to `<SaleQuotation>`. That swap itself is unconfirmed.
-Tracked centrally in CLAUDE.md §8 (BUSY gotchas table); verify with one real test post
-against the BUSY test company before trusting this in production (same "post one real
-test voucher" recommendation as PRD §11 makes for Sale postings generally).
+Confirmed against live BUSY 2026-08-15 (CLAUDE.md §8 has the full writeup):
+  - Root tag `<SaleQuotation>` is correct.
+  - This company has Detailed Audit Trail enabled, so `VchNo` must be a real
+    "<prefix>-<n>" for the chosen series, computed via app.busy.vch_numbering — an
+    arbitrary or omitted `VchNo` is rejected ("Voucher number can not be blank").
+  - `STPTName` (Sale Type) must be a real one for the target company — there is no
+    universal default; the caller must supply one that actually exists in their data.
 
-Enqueues onto the outbox (app/outbox/) rather than calling BUSY directly — CLAUDE.md §2.2,
-no exceptions for any SC=2 write, quotations included.
+`VchNo` is deliberately computed in the OUTBOX WORKER (`_handle_add_sale_quotation`),
+not at enqueue time: computing it early risks two quotations enqueued back-to-back
+both computing the *same* next number, since neither has posted yet to advance BUSY's
+own ledger. The worker processes one job at a time to completion (CLAUDE.md §2.2 — no
+concurrency), so by the time each job's `VchNo` is computed, every prior job has
+already posted and moved BUSY's ledger forward.
+
+Enqueues onto the outbox (app/outbox/) rather than calling BUSY directly — CLAUDE.md
+§2.2, no exceptions for any SC=2 write, quotations included.
 """
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.busy.client import BusyClient
 from app.busy.constants import VchType
+from app.busy.vch_numbering import get_next_vch_no
 from app.busy.xml_util import encode_xml_entities
 from app.outbox.models import OutboxJob
 from app.outbox.queue import enqueue
+from app.outbox.worker import register_handler
+
+JOB_TYPE = "add_sale_quotation"
 
 
 @dataclass(frozen=True)
@@ -37,17 +48,16 @@ class QuotationItem:
 @dataclass(frozen=True)
 class QuotationRequest:
     vch_series_name: str
-    date: str  # DD-MM-YYYY, matching the confirmed Sale example's format
+    vch_no_prefix: str  # e.g. "RCC" for the "Main" series — discovered, not derivable
+    date: str  # DD-MM-YYYY, matching the confirmed live-tested format
     sale_type_name: str
     customer_name: str
     material_center_name: str
     items: list[QuotationItem]
 
 
-def build_quotation_xml(request: QuotationRequest) -> str:
-    """Build the `<SaleQuotation>` XML body for SC=2 (`VchXml` header). `VchNo` is
-    deliberately omitted so BUSY auto-numbers it (PRD NFR5: dedicated series,
-    auto-numbering on)."""
+def build_quotation_xml(request: QuotationRequest, *, vch_no: str) -> str:
+    """Build the `<SaleQuotation>` XML body for SC=2 (`VchXml` header)."""
     item_tags = "".join(
         f"<ItemDetail><SrNo>{i}</SrNo>"
         f"<ItemName>{encode_xml_entities(item.item_name)}</ItemName>"
@@ -61,6 +71,7 @@ def build_quotation_xml(request: QuotationRequest) -> str:
         f"<VchSeriesName>{encode_xml_entities(request.vch_series_name)}</VchSeriesName>"
         f"<Date>{request.date}</Date>"
         f"<VchType>{int(VchType.SALE_QUOTATION)}</VchType>"
+        f"<VchNo>{encode_xml_entities(vch_no)}</VchNo>"
         f"<STPTName>{encode_xml_entities(request.sale_type_name)}</STPTName>"
         f"<MasterName1>{encode_xml_entities(request.customer_name)}</MasterName1>"
         f"<MasterName2>{encode_xml_entities(request.material_center_name)}</MasterName2>"
@@ -69,15 +80,70 @@ def build_quotation_xml(request: QuotationRequest) -> str:
     )
 
 
+def _request_to_payload(request: QuotationRequest) -> dict[str, Any]:
+    # Decimal isn't JSON-serializable (the outbox payload column is JSON) — stringify.
+    return {
+        "vch_series_name": request.vch_series_name,
+        "vch_no_prefix": request.vch_no_prefix,
+        "date": request.date,
+        "sale_type_name": request.sale_type_name,
+        "customer_name": request.customer_name,
+        "material_center_name": request.material_center_name,
+        "items": [
+            {
+                "item_name": item.item_name,
+                "unit_name": item.unit_name,
+                "qty": str(item.qty),
+                "price": str(item.price),
+                "amount": str(item.amount),
+            }
+            for item in request.items
+        ],
+    }
+
+
+def _payload_to_request(payload: dict[str, Any]) -> QuotationRequest:
+    items = [
+        QuotationItem(
+            item_name=item["item_name"],
+            unit_name=item["unit_name"],
+            qty=Decimal(item["qty"]),
+            price=Decimal(item["price"]),
+            amount=Decimal(item["amount"]),
+        )
+        for item in payload["items"]
+    ]
+    return QuotationRequest(
+        vch_series_name=payload["vch_series_name"],
+        vch_no_prefix=payload["vch_no_prefix"],
+        date=payload["date"],
+        sale_type_name=payload["sale_type_name"],
+        customer_name=payload["customer_name"],
+        material_center_name=payload["material_center_name"],
+        items=items,
+    )
+
+
 def enqueue_sale_quotation(
     session: Session, request: QuotationRequest, *, idempotency_key: str
 ) -> OutboxJob:
     """Just a local DB insert (app/outbox/queue.py) — safe to call inline from a request
-    handler. The actual BUSY post happens later, out of band, in the outbox worker."""
-    vch_xml = build_quotation_xml(request)
+    handler. `VchNo` isn't computed yet; that happens in the worker, at post time (see
+    module docstring for why)."""
     return enqueue(
         session,
-        job_type="add_voucher",
-        payload={"vch_type": int(VchType.SALE_QUOTATION), "vch_xml": vch_xml},
+        job_type=JOB_TYPE,
+        payload=_request_to_payload(request),
         idempotency_key=idempotency_key,
     )
+
+
+async def _handle_add_sale_quotation(payload: dict[str, Any], busy: BusyClient) -> dict[str, Any]:
+    request = _payload_to_request(payload)
+    vch_no = await get_next_vch_no(busy, int(VchType.SALE_QUOTATION), request.vch_no_prefix)
+    xml = build_quotation_xml(request, vch_no=vch_no)
+    vch_code = await busy.add_voucher(int(VchType.SALE_QUOTATION), xml)
+    return {"vch_code": vch_code, "vch_no": vch_no}
+
+
+register_handler(JOB_TYPE, _handle_add_sale_quotation)

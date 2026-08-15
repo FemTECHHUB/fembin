@@ -15,6 +15,7 @@ router = APIRouter(prefix="/quotations", tags=["quotations"])
 def create_sale_quotation_route(body: QuotationCreateRequest, db: DbSession) -> OutboxJobOut:
     request = QuotationRequest(
         vch_series_name=body.vch_series_name,
+        vch_no_prefix=body.vch_no_prefix,
         date=body.date,
         sale_type_name=body.sale_type_name,
         customer_name=body.customer_name,
