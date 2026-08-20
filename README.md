@@ -69,16 +69,21 @@ curl -s localhost:8000/api/v1/quotations -H 'Authorization: Bearer <token>'
 
 ### Sales people and barcodes
 
-Every Sale Quotation also names a `SalesPerson` (`sales_person_id`, `app/domain/orders/
-sales_people.py`) — distinct from the logged-in `User`, since several people can share one
-till/login. Tied to one material center like `User`, but a superadmin can move one to a
-different branch (`PATCH /api/v1/admin/sales-people/{id}`) without losing history. This is
-local-only data, stored in the outbox job's payload — **not** written into the BUSY XML,
-since `SaleQuotation` has no confirmed Narration/Remarks field to carry it (CLAUDE.md §8).
+Every Sale Quotation also names a sales person (`sales_person_id`) — distinct from the
+logged-in `User`, since several people can share one till/login. This is BUSY's own
+**Executive** master (`MasterType=33`, BUSY calls it "Salesmen" in its UI) — synced
+read-only exactly like Product/Material Center (`app/domain/catalog/sync.py`'s
+`sync_salesmen`, `app/db/models.py`'s `Salesman`), **not** something this app creates —
+add/edit salesmen in BUSY itself (Administration → Masters → Executive), then sync.
+`GET /api/v1/sales-people` lists the active ones. Recorded in the outbox job's own
+payload, not the BUSY XML — there's no confirmed Narration/Remarks field on
+`SaleQuotation` to carry it (CLAUDE.md §8). Whether BUSY ties an Executive to a specific
+material center is unconfirmed, so the list isn't branch-scoped.
 
 Products can carry a `barcode` (`PUT /api/v1/products/{code}/barcode`, superadmin-only) —
-also local-only. Checked live 2026-08-20: this company's real BUSY Item master has **no**
-barcode data anywhere, so this can't "match BUSY" — it's ours to maintain (CLAUDE.md §8).
+local-only, unlike sales people. Checked live 2026-08-20: this company's real BUSY Item
+master has **no** barcode data anywhere, so this genuinely can't come from BUSY — it's
+ours to maintain (CLAUDE.md §8).
 
 ### Dev-only test pages
 
@@ -87,9 +92,9 @@ same-origin so no CORS is needed) for manually testing login, picking a sales pe
 scanning/picking products, and creating/watching Sale Quotations. Not a production UI.
 
 `/admin` (`app/static/admin.html`) — the same idea, for a superadmin: every user, every
-quotation regardless of branch, sales-people management (create, reassign,
-activate/deactivate), and barcode assignment. Backed by `GET /api/v1/admin/users`,
-`/admin/quotations`, `/admin/sales-people`, and `PATCH /api/v1/admin/sales-people/{id}`.
+quotation regardless of branch, every synced sales person (including inactive ones), and
+barcode assignment. Backed by `GET /api/v1/admin/users`, `/admin/quotations`,
+`/admin/sales-people`.
 
 Every HTTP request is access-logged (`app.access` logger: method, path, status, duration).
 Every catalog sync / outbox drain is logged per step with timing. Two ops scripts log a

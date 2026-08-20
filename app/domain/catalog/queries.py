@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Category, MaterialCenter, Product, SyncState
+from app.db.models import Category, MaterialCenter, Product, Salesman, SyncState
 
 
 class ProductNotFoundError(Exception):
@@ -66,6 +66,19 @@ def list_categories(session: Session) -> list[Category]:
 
 def list_material_centers(session: Session) -> list[MaterialCenter]:
     return list(session.scalars(select(MaterialCenter).order_by(MaterialCenter.name)))
+
+
+def list_salesmen(session: Session, *, active_only: bool = True) -> list[Salesman]:
+    """BUSY's Executive master (MasterType=33), synced read-only — see Salesman's
+    docstring for why this isn't something we create/edit locally."""
+    stmt = select(Salesman)
+    if active_only:
+        stmt = stmt.where(Salesman.is_active.is_(True))
+    return list(session.scalars(stmt.order_by(Salesman.name)))
+
+
+def get_salesman(session: Session, code: int) -> Salesman | None:
+    return session.get(Salesman, code)
 
 
 @dataclass(frozen=True)

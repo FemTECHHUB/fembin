@@ -1,11 +1,10 @@
-"""API-level: GET /api/v1/admin/users, /admin/quotations, /admin/sales-people,
-PATCH /api/v1/admin/sales-people/{id} — all superadmin-only, all unscoped by branch."""
+"""API-level: GET /api/v1/admin/users, /admin/quotations, /admin/sales-people — all
+superadmin-only, all unscoped by branch."""
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import MaterialCenter, SalesPerson, User
-from app.domain.orders.sales_people import create_sales_person
+from app.db.models import Salesman, User
 from app.main import app
 
 
@@ -36,7 +35,7 @@ def test_admin_list_quotations_is_unscoped(
     db_session: Session,
     superadmin_headers: dict[str, str],
     auth_headers: dict[str, str],
-    sales_person: SalesPerson,
+    salesman: Salesman,
 ) -> None:
     body = {
         "idempotency_key": "admin-view-1",
@@ -44,7 +43,7 @@ def test_admin_list_quotations_is_unscoped(
         "date": "20-08-2026",
         "sale_type_name": "Repair",
         "customer_name": "Admin View Customer",
-        "sales_person_id": sales_person.id,
+        "sales_person_id": salesman.busy_code,
         "items": [
             {
                 "item_name": "Acer Laptop",
@@ -65,39 +64,17 @@ def test_admin_list_quotations_is_unscoped(
 
 
 def test_admin_list_sales_people_includes_inactive(
-    db_session: Session, superadmin_headers: dict[str, str], material_center: MaterialCenter
+    db_session: Session, superadmin_headers: dict[str, str], salesman: Salesman
 ) -> None:
-    person = create_sales_person(
-        db_session, full_name="Femi Sales", material_center_code=material_center.busy_code
-    )
-    with TestClient(app) as client:
-        deactivate = client.patch(
-            f"/api/v1/admin/sales-people/{person.id}",
-            headers=superadmin_headers,
-            json={"is_active": False},
-        )
-        assert deactivate.status_code == 200
-        assert deactivate.json()["is_active"] is False
-
-        listed = client.get("/api/v1/admin/sales-people", headers=superadmin_headers)
-        assert person.id in [p["id"] for p in listed.json()]
-
-
-def test_admin_reassign_sales_person_branch(
-    db_session: Session, superadmin_headers: dict[str, str], material_center: MaterialCenter
-) -> None:
-    other_center = MaterialCenter(busy_code=1155, name="Repair Centre Taiwo", is_active=True)
-    db_session.add(other_center)
+    salesman.is_active = False
     db_session.commit()
 
-    person = create_sales_person(
-        db_session, full_name="Femi Sales", material_center_code=material_center.busy_code
-    )
     with TestClient(app) as client:
-        resp = client.patch(
-            f"/api/v1/admin/sales-people/{person.id}",
-            headers=superadmin_headers,
-            json={"material_center_code": 1155},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["material_center_code"] == 1155
+        # GET /api/v1/sales-people (caller-facing) hides inactive ones...
+        assert client.get("/api/v1/sales-people").json() == []
+
+        # ...but the admin view still shows them, so a superadmin can see who got blocked.
+        admin_listed = client.get("/api/v1/admin/sales-people", headers=superadmin_headers)
+        assert admin_listed.status_code == 200
+        codes = {p["busy_code"]: p["is_active"] for p in admin_listed.json()}
+        assert codes[salesman.busy_code] is False

@@ -1,4 +1,4 @@
-"""Pydantic models for the sales-people endpoints."""
+"""Pydantic models for the sales-people (BUSY Executive master) endpoint."""
 
 from datetime import datetime
 
@@ -6,20 +6,14 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SalesPersonOut(BaseModel):
+    """A BUSY Executive (MasterType=33) — read-only, synced from BUSY like Product/
+    MaterialCenter. Named "SalesPerson" on the wire since that's the concept our own app
+    exposes; the underlying master is `Salesman` (app/db/models.py)."""
+
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    full_name: str
-    material_center_code: int
+    busy_code: int
+    name: str
+    alias: str | None
     is_active: bool
-    created_at: datetime
-
-
-class SalesPersonCreateRequest(BaseModel):
-    full_name: str
-    material_center_code: int
-
-
-class SalesPersonReassignRequest(BaseModel):
-    material_center_code: int | None = None
-    is_active: bool | None = None
+    updated_at: datetime

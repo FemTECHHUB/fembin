@@ -85,8 +85,10 @@
     </div>
     <label>Sales person <select id="q-salesperson"></select></label>
     <p class="muted" id="sp-empty-note" style="display:none;">
-      No sales people set up for your branch yet — ask a superadmin to add one at
-      <code>/admin</code> before you can create a quotation.
+      No sales people found — these come from BUSY's own "Executive" master (Administration
+      → Masters → Executive in the BUSY desktop app), not something added here. Add one in
+      BUSY, then trigger a catalog sync (<code>POST /api/v1/sync/products</code>) to pull
+      it in.
     </p>
 
     <label>Scan barcode <input id="barcode-input" autocomplete="off" placeholder="Scan or type a barcode, then press Enter" /></label>

@@ -104,22 +104,30 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-class SalesPerson(Base):
-    """A named individual credited on a Sale Quotation (CLAUDE.md NFR6, extended at
-    explicit request 2026-08-20) — distinct from `User`: several people may share one
-    till/login at a branch, but each sale should still be attributable to whoever actually
-    made it. Local-only, not a BUSY master — there is no confirmed BUSY field to carry
-    this into the SaleQuotation XML itself (see app/domain/orders/quotations.py)."""
+class Salesman(Base):
+    """A BUSY Executive (MasterType=33) — "Salesmen" in BUSY's own terminology. A named
+    individual credited on a Sale Quotation, distinct from `User`: several people may
+    share one till/login at a branch, but each sale should still be attributable to
+    whoever actually made it (CLAUDE.md NFR6).
 
-    __tablename__ = "sales_people"
+    Corrected 2026-08-20: this was first built as a table we owned and let callers create
+    entries into (`sales_people`) — wrong. BUSY already has a real master for this
+    (confirmed in the research phase, docs/reference/14-command-center.md), so it must be
+    synced read-only like Product/MaterialCenter, never created/edited from our side.
+    Whether BUSY ties an Executive to a specific Material Center is unconfirmed — the
+    generic Master1 schema shows no such field, so no branch-scoping is applied here
+    (CLAUDE.md §8)."""
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    full_name: Mapped[str] = mapped_column(String(255))
-    # Which branch's dropdown this person shows up in. A superadmin can reassign this
-    # (PATCH /api/v1/admin/sales-people/{id}) rather than it being fixed at creation.
-    material_center_code: Mapped[int] = mapped_column(ForeignKey("material_centers.busy_code"))
+    __tablename__ = "salesmen"
+
+    busy_code: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), default="")
+    alias: Mapped[str | None] = mapped_column(String(64), default=None)
+    parent_group: Mapped[str | None] = mapped_column(String(255), default=None)
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 class WooSyncState(Base):

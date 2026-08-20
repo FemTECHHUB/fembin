@@ -4,17 +4,16 @@ a caller check what happened to it.
 
 Every route requires an authenticated user (auth_headers fixture, tests/conftest.py) — the
 quotation's material center always comes from that user's own assignment, never the
-request body (CLAUDE.md NFR6). sales_person_id must be an active SalesPerson at that same
-material center."""
+request body (CLAUDE.md NFR6). sales_person_id must match a real, active salesman synced
+from BUSY's Executive master (app/db/models.py's `Salesman`)."""
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.db.models import MaterialCenter, SalesPerson
+from app.db.models import MaterialCenter, Salesman
 from app.domain.auth.tokens import create_access_token
 from app.domain.auth.users import create_user
-from app.domain.orders.sales_people import create_sales_person
 from app.main import app
 
 
@@ -50,18 +49,18 @@ def test_quotations_require_authentication(db_session: Session) -> None:
 
 
 def test_create_sale_quotation_and_fetch_outbox_status(
-    db_session: Session, auth_headers: dict[str, str], sales_person: SalesPerson
+    db_session: Session, auth_headers: dict[str, str], salesman: Salesman
 ) -> None:
     with TestClient(app) as client:
         create_resp = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-quote-1", sales_person_id=sales_person.id),
+            json=_quotation_body("api-quote-1", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         assert create_resp.status_code == 202
         body = create_resp.json()
         assert body["status"] == "queued"
-        assert body["payload"]["sales_person_name"] == sales_person.full_name
+        assert body["payload"]["sales_person_name"] == salesman.name
         job_id = body["id"]
 
         status_resp = client.get(f"/api/v1/outbox/{job_id}")
@@ -72,54 +71,62 @@ def test_create_sale_quotation_and_fetch_outbox_status(
         assert missing_resp.status_code == 404
 
 
-def test_create_sale_quotation_rejects_sales_person_from_another_branch(
+def test_create_sale_quotation_rejects_unknown_sales_person(
     db_session: Session, auth_headers: dict[str, str], material_center: MaterialCenter
 ) -> None:
-    other_center = MaterialCenter(busy_code=1155, name="Repair Centre Taiwo", is_active=True)
-    db_session.add(other_center)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/quotations",
+            json=_quotation_body("api-unknown-sp", sales_person_id=999999),
+            headers=auth_headers,
+        )
+        assert resp.status_code == 422
+
+
+def test_create_sale_quotation_rejects_inactive_sales_person(
+    db_session: Session, auth_headers: dict[str, str], salesman: Salesman
+) -> None:
+    salesman.is_active = False
     db_session.commit()
-    other_sales_person = create_sales_person(
-        db_session, full_name="Chidi Sales", material_center_code=other_center.busy_code
-    )
 
     with TestClient(app) as client:
         resp = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-wrong-branch", sales_person_id=other_sales_person.id),
+            json=_quotation_body("api-inactive-sp", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         assert resp.status_code == 422
 
 
 def test_create_sale_quotation_is_idempotent(
-    db_session: Session, auth_headers: dict[str, str], sales_person: SalesPerson
+    db_session: Session, auth_headers: dict[str, str], salesman: Salesman
 ) -> None:
     with TestClient(app) as client:
         first = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-quote-dup", sales_person_id=sales_person.id),
+            json=_quotation_body("api-quote-dup", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         second = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-quote-dup", sales_person_id=sales_person.id),
+            json=_quotation_body("api-quote-dup", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         assert first.json()["id"] == second.json()["id"]
 
 
 def test_list_sale_quotations_shows_status(
-    db_session: Session, auth_headers: dict[str, str], sales_person: SalesPerson
+    db_session: Session, auth_headers: dict[str, str], salesman: Salesman
 ) -> None:
     with TestClient(app) as client:
         first = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-list-1", sales_person_id=sales_person.id),
+            json=_quotation_body("api-list-1", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         second = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-list-2", sales_person_id=sales_person.id),
+            json=_quotation_body("api-list-2", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
 
@@ -133,7 +140,7 @@ def test_list_sale_quotations_shows_status(
 
 
 def test_list_sale_quotations_is_scoped_to_the_caller_material_center(
-    db_session: Session, auth_headers: dict[str, str], sales_person: SalesPerson
+    db_session: Session, auth_headers: dict[str, str], salesman: Salesman
 ) -> None:
     """A second user tied to a different branch must never see the first user's
     quotations — proves the material-center tie is enforced, not just recorded."""
@@ -155,7 +162,7 @@ def test_list_sale_quotations_is_scoped_to_the_caller_material_center(
     with TestClient(app) as client:
         created = client.post(
             "/api/v1/quotations",
-            json=_quotation_body("api-scope-1", sales_person_id=sales_person.id),
+            json=_quotation_body("api-scope-1", sales_person_id=salesman.busy_code),
             headers=auth_headers,
         )
         assert created.status_code == 202

@@ -1,37 +1,16 @@
-"""Sales-people routes — thin (CLAUDE.md §3). Listing is scoped to the caller's own
-material center (any authenticated user, for their own "pick your name" dropdown);
-creating one is superadmin-only, same lockdown reasoning as user creation."""
+"""Sales-people routes — thin (CLAUDE.md §3). Read-only: this is BUSY's own Executive
+master (MasterType=33), synced like Product/MaterialCenter, not something we create or
+edit from our side (app/db/models.py's `Salesman` docstring has the full story)."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
-from app.api.v1.deps import CurrentUser, DbSession, SuperadminUser
-from app.api.v1.schemas_sales_people import SalesPersonCreateRequest, SalesPersonOut
-from app.domain.orders.sales_people import (
-    UnknownMaterialCenterError,
-    create_sales_person,
-    list_sales_people,
-)
+from app.api.v1.deps import DbSession
+from app.api.v1.schemas_sales_people import SalesPersonOut
+from app.domain.catalog.queries import list_salesmen
 
 router = APIRouter(prefix="/sales-people", tags=["sales-people"])
 
 
 @router.get("", response_model=list[SalesPersonOut])
-def list_sales_people_route(db: DbSession, current_user: CurrentUser) -> list[SalesPersonOut]:
-    people = list_sales_people(db, material_center_code=current_user.material_center_code)
-    return [SalesPersonOut.model_validate(p) for p in people]
-
-
-@router.post("", response_model=SalesPersonOut, status_code=201)
-def create_sales_person_route(
-    body: SalesPersonCreateRequest, db: DbSession, _: SuperadminUser
-) -> SalesPersonOut:
-    try:
-        person = create_sales_person(
-            db, full_name=body.full_name, material_center_code=body.material_center_code
-        )
-    except UnknownMaterialCenterError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "material_center_code does not match a known, active material center",
-        ) from exc
-    return SalesPersonOut.model_validate(person)
+def list_sales_people_route(db: DbSession) -> list[SalesPersonOut]:
+    return [SalesPersonOut.model_validate(p) for p in list_salesmen(db)]

@@ -176,12 +176,15 @@ to it.
   `scripts/create_superadmin.py`. A cross-branch dashboard (`GET /api/v1/admin/users`,
   `/admin/quotations`, `/admin/sales-people`, served at `/admin`) lets a superadmin see
   everything rather than only their own material center.
-- `sales_people` table (`app/domain/orders/sales_people.py`) — a named individual
-  credited on a quotation, distinct from the logged-in `User` (several people may share
-  one till/login). Tied to one material center like `User`, but a superadmin can reassign
-  it (`PATCH /api/v1/admin/sales-people/{id}`) without deleting history. Stored in the
-  outbox job's own payload, **not** in the BUSY XML — there is no confirmed
-  Narration/Remarks field on `SaleQuotation` to carry it (CLAUDE.md §8).
+- Sales people credited on a quotation, distinct from the logged-in `User` (several
+  people may share one till/login) — **first built wrong** as a table we owned
+  (`sales_people`, callers could create rows into it), corrected same day: this is a real
+  BUSY master (`Salesman` in `app/db/models.py`, BUSY's Executive, `MasterType=33`),
+  synced read-only exactly like Material Center (CLAUDE.md §8 has the full story,
+  including a caveat about whether it's tied to a branch — it isn't, as far as the schema
+  shows). `GET /api/v1/sales-people` lists BUSY's own synced list; there is no create/edit
+  endpoint. Still stored in the outbox job's own payload, **not** in the BUSY XML — there
+  is no confirmed Narration/Remarks field on `SaleQuotation` to carry it.
 - `Product.barcode` — local-only, **not** BUSY data. Live-checked 2026-08-20: this
   company's real Item master has no barcode field populated anywhere (CLAUDE.md §8).
   Assigned via `PUT /api/v1/products/{code}/barcode` (superadmin-only); the console's

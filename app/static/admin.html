@@ -46,8 +46,6 @@
   .error { color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; white-space: pre-wrap; }
   .muted { opacity: 0.65; font-size: 0.85rem; }
   #app-main, #denied { display: none; }
-  select.mc-select { width: auto; display: inline-block; margin: 0; }
-  .row-actions { display: flex; gap: 0.4rem; align-items: center; }
 </style>
 </head>
 <body>
@@ -91,15 +89,16 @@
 
   <section>
     <h2>Sales people <span class="muted" id="sp-note"></span></h2>
-    <div class="inline-form">
-      <label>Full name <input id="sp-name" /></label>
-      <label>Material center <select id="sp-mc" class="mc-select"></select></label>
-      <button id="sp-create-btn">Add sales person</button>
-    </div>
+    <p class="muted">
+      Read-only — this is BUSY's own "Executive" master (MasterType=33), synced like
+      products and material centers. Add or edit salesmen in the BUSY desktop app
+      (Administration → Masters → Executive), then trigger a sync to pull changes in.
+    </p>
     <div class="error" id="sp-error"></div>
     <button id="refresh-sp-btn">Refresh</button>
+    <button id="sync-btn">Trigger catalog sync</button>
     <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Material center</th><th>Active</th><th>Reassign to</th><th></th></tr></thead>
+      <thead><tr><th>Code</th><th>Name</th><th>Alias</th><th>Active</th></tr></thead>
       <tbody id="sp-body"></tbody>
     </table>
   </section>
@@ -130,7 +129,6 @@
 <script>
 const API = "/api/v1";
 let token = sessionStorage.getItem("fembin_token") || null;
-let materialCenters = [];
 let products = [];
 
 function authHeaders() {
@@ -160,17 +158,6 @@ function statusBadge(status) {
   return `<span class="badge badge-${status}">${status}</span>`;
 }
 
-function mcOptionsHtml(selected) {
-  return materialCenters
-    .map(mc => `<option value="${mc.busy_code}" ${mc.busy_code === selected ? "selected" : ""}>${mc.name}</option>`)
-    .join("");
-}
-
-async function loadMaterialCenters() {
-  materialCenters = await api("/material-centers");
-  document.getElementById("sp-mc").innerHTML = mcOptionsHtml();
-}
-
 async function loadUsers() {
   const users = await api("/admin/users");
   document.getElementById("users-body").innerHTML = users.map(u => `<tr>
@@ -184,31 +171,9 @@ async function loadUsers() {
 async function loadSalesPeople() {
   const people = await api("/admin/sales-people");
   document.getElementById("sp-body").innerHTML = people.map(p => `<tr>
-    <td>${p.id}</td><td>${p.full_name}</td><td>${p.material_center_code}</td><td>${p.is_active}</td>
-    <td><select class="mc-select reassign-mc" data-id="${p.id}">${mcOptionsHtml(p.material_center_code)}</select></td>
-    <td class="row-actions">
-      <button class="reassign-btn" data-id="${p.id}">Move</button>
-      <button class="toggle-active-btn" data-id="${p.id}" data-active="${p.is_active}">${p.is_active ? "Deactivate" : "Activate"}</button>
-    </td>
-  </tr>`).join("") || `<tr><td colspan="6" class="muted">No sales people yet.</td></tr>`;
+    <td>${p.busy_code}</td><td>${p.name}</td><td>${p.alias ?? ""}</td><td>${p.is_active}</td>
+  </tr>`).join("") || `<tr><td colspan="4" class="muted">None synced from BUSY yet.</td></tr>`;
   document.getElementById("sp-note").textContent = `(${people.length})`;
-
-  document.querySelectorAll(".reassign-btn").forEach(btn => btn.addEventListener("click", async () => {
-    const id = btn.dataset.id;
-    const mc = document.querySelector(`.reassign-mc[data-id="${id}"]`).value;
-    try {
-      await api(`/admin/sales-people/${id}`, { method: "PATCH", body: JSON.stringify({ material_center_code: Number(mc) }) });
-      await loadSalesPeople();
-    } catch (e) { document.getElementById("sp-error").textContent = e.message; }
-  }));
-  document.querySelectorAll(".toggle-active-btn").forEach(btn => btn.addEventListener("click", async () => {
-    const id = btn.dataset.id;
-    const nowActive = btn.dataset.active === "true";
-    try {
-      await api(`/admin/sales-people/${id}`, { method: "PATCH", body: JSON.stringify({ is_active: !nowActive }) });
-      await loadSalesPeople();
-    } catch (e) { document.getElementById("sp-error").textContent = e.message; }
-  }));
 }
 
 async function loadProducts() {
@@ -247,7 +212,6 @@ async function enterApp() {
   showSection("app-main");
   document.getElementById("whoami").innerHTML =
     `<strong>${me.username}</strong> (${me.full_name}) — ${me.material_center_name}`;
-  await loadMaterialCenters();
   await loadProducts();
   await Promise.all([loadUsers(), loadSalesPeople(), loadQuotations()]);
 }
@@ -282,18 +246,11 @@ document.getElementById("refresh-users-btn").addEventListener("click", () => loa
 document.getElementById("refresh-sp-btn").addEventListener("click", () => loadSalesPeople().catch(e => alert(e.message)));
 document.getElementById("refresh-quotes-btn").addEventListener("click", () => loadQuotations().catch(e => alert(e.message)));
 
-document.getElementById("sp-create-btn").addEventListener("click", async () => {
+document.getElementById("sync-btn").addEventListener("click", async () => {
   document.getElementById("sp-error").textContent = "";
   try {
-    await api("/sales-people", {
-      method: "POST",
-      body: JSON.stringify({
-        full_name: document.getElementById("sp-name").value,
-        material_center_code: Number(document.getElementById("sp-mc").value),
-      }),
-    });
-    document.getElementById("sp-name").value = "";
-    await loadSalesPeople();
+    await api("/sync/products", { method: "POST", body: JSON.stringify({}) });
+    document.getElementById("sp-error").textContent = "Sync triggered (runs in the background) — refresh in a few seconds.";
   } catch (e) {
     document.getElementById("sp-error").textContent = e.message;
   }

@@ -24,8 +24,16 @@ async def test_run_catalog_sync_logs_timing_for_full_and_noop_resync(
     first = await run_catalog_sync(SessionLocal, catalog_sync_settings, full=True)
     second = await run_catalog_sync(SessionLocal, catalog_sync_settings, full=False)
 
-    assert {r.entity: r.changed for r in first.busy} == {"material_centers": 2, "products": 8}
-    assert {r.entity: r.changed for r in second.busy} == {"material_centers": 0, "products": 0}
+    assert {r.entity: r.changed for r in first.busy} == {
+        "material_centers": 2,
+        "products": 8,
+        "salesmen": 2,
+    }
+    assert {r.entity: r.changed for r in second.busy} == {
+        "material_centers": 0,
+        "products": 0,
+        "salesmen": 0,
+    }
 
     # Woo isn't seeded yet by default — zero WooCommerce calls both runs, but the 7 active
     # products (code 308 is the blocked one) are still recorded as "seen".
@@ -34,5 +42,6 @@ async def test_run_catalog_sync_logs_timing_for_full_and_noop_resync(
     assert second.woo is not None
     assert (second.woo.seeded, second.woo.created) == (7, 0)
 
-    # 3 steps (material_centers, products, woocommerce) x 2 runs = 6 timed, logged results.
-    assert caplog.text.count("elapsed=") == 6
+    # 4 steps (material_centers, products, salesmen, woocommerce) x 2 runs = 8 timed,
+    # logged results.
+    assert caplog.text.count("elapsed=") == 8

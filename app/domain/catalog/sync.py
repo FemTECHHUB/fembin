@@ -26,7 +26,7 @@ from app.busy.client import BusyClient, BusyError
 from app.busy.constants import MasterType
 from app.busy.pagination import fetch_all_pages
 from app.busy.xml_util import XmlValue, parse_element_xml
-from app.db.models import Category, MaterialCenter, Product, SyncState
+from app.db.models import Category, MaterialCenter, Product, Salesman, SyncState
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,59 @@ async def sync_material_centers(
     max_stamp = since
     for row in rows:
         stmt = mysql_insert(MaterialCenter).values(
+            busy_code=int(row["Code"]),
+            name=row["Name"],
+            alias=row.get("Alias") or None,
+            parent_group=row.get("ParentGrp") or None,
+            is_active=is_master_active(row),
+        )
+        stmt = stmt.on_duplicate_key_update(
+            name=stmt.inserted.name,
+            alias=stmt.inserted.alias,
+            parent_group=stmt.inserted.parent_group,
+            is_active=stmt.inserted.is_active,
+            updated_at=func.now(),
+        )
+        session.execute(stmt)
+        max_stamp = max(max_stamp, int(row["Stamp"]))
+
+    _set_last_stamp(session, entity, max_stamp)
+    session.commit()
+    return SyncResult(entity=entity, changed=len(rows), incremental=not full, stored=len(rows))
+
+
+async def sync_salesmen(
+    session: Session,
+    client: BusyClient,
+    *,
+    full: bool = False,
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> SyncResult:
+    """MasterType=33 — "Executive" in BUSY's own schema, "Salesmen" in its UI. Bulk SQL
+    only, same shape as sync_material_centers — confirmed real (docs/reference/
+    14-command-center.md), though the original research-phase probe against this same
+    company found it genuinely empty (this business wasn't using the feature yet)."""
+    entity = "salesmen"
+    since = -1 if full else get_last_stamp(session, entity)
+    rows = await fetch_all_pages(
+        client,
+        select_columns=[
+            "Code",
+            "Name",
+            "Alias",
+            "ParentGrp",
+            "Stamp",
+            "BlockedMaster",
+            "DeactiveMaster",
+        ],
+        from_and_where=f"Master1 WHERE MasterType = {int(MasterType.EXECUTIVE)}",
+        since=since,
+        page_size=page_size,
+    )
+
+    max_stamp = since
+    for row in rows:
+        stmt = mysql_insert(Salesman).values(
             busy_code=int(row["Code"]),
             name=row["Name"],
             alias=row.get("Alias") or None,

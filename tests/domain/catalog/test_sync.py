@@ -10,8 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.busy.client import BusyClient
-from app.db.models import Product
-from app.domain.catalog.sync import get_last_stamp, sync_material_centers, sync_products
+from app.db.models import Product, Salesman
+from app.domain.catalog.sync import (
+    get_last_stamp,
+    sync_material_centers,
+    sync_products,
+    sync_salesmen,
+)
 
 
 async def test_sync_products_paginates_and_marks_blocked_item_inactive(
@@ -64,5 +69,33 @@ async def test_sync_material_centers_full_then_incremental_is_near_zero(
     assert first.incremental is False
 
     second = await sync_material_centers(db_session, busy_client, full=False)
+    assert second.changed == 0
+    assert second.incremental is True
+
+
+async def test_sync_salesmen_pulls_the_busy_executive_master(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    """MasterType=33 ("Executive" in BUSY's schema, "Salesmen" in its UI) — confirmed
+    real via docs/reference/14-command-center.md. Synced the same way as material
+    centers: bulk SQL, no per-record detail calls."""
+    result = await sync_salesmen(db_session, busy_client, full=True)
+
+    assert result.changed == 2
+    assert result.incremental is False
+
+    salesmen = {s.busy_code: s for s in db_session.scalars(select(Salesman))}
+    assert set(salesmen) == {401, 402}
+    assert salesmen[401].name == "Femi Sales"
+    assert salesmen[401].is_active is True
+
+
+async def test_sync_salesmen_full_then_incremental_is_near_zero(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    first = await sync_salesmen(db_session, busy_client, full=True)
+    assert first.changed == 2
+
+    second = await sync_salesmen(db_session, busy_client, full=False)
     assert second.changed == 0
     assert second.incremental is True

@@ -4,13 +4,16 @@ BUSY-touching endpoints elsewhere which hand off via BackgroundTasks instead.
 
 Every route requires an authenticated user (CurrentUser, app/api/v1/deps.py): the material
 center on the quotation is always the caller's own assigned branch (CLAUDE.md NFR6), never
-client-supplied, and the listing is scoped to that same branch."""
+client-supplied, and the listing is scoped to that same branch. `sales_person_id` must
+match a real, active BUSY Executive (app/domain/catalog/queries.py's `get_salesman`) —
+that master is synced read-only from BUSY, not something this app creates."""
 
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.api.v1.schemas_outbox import OutboxJobOut, QuotationCreateRequest
-from app.db.models import MaterialCenter, SalesPerson
+from app.db.models import MaterialCenter
+from app.domain.catalog.queries import get_salesman
 from app.domain.orders.quotations import (
     QuotationItem,
     QuotationRequest,
@@ -40,15 +43,13 @@ def create_sale_quotation_route(
             "your assigned material center no longer exists in our mirror",
         )
 
-    sales_person = db.get(SalesPerson, body.sales_person_id)
-    if (
-        sales_person is None
-        or not sales_person.is_active
-        or sales_person.material_center_code != current_user.material_center_code
-    ):
+    sales_person = get_salesman(db, body.sales_person_id)
+    if sales_person is None or not sales_person.is_active:
+        # No material-center check — BUSY's Executive master isn't branch-scoped
+        # (unconfirmed field, CLAUDE.md §8), so any active salesman is valid here.
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "sales_person_id does not match an active sales person at your material center",
+            "sales_person_id does not match a known, active sales person",
         )
 
     request = QuotationRequest(
@@ -76,7 +77,7 @@ def create_sale_quotation_route(
         created_by_user_id=current_user.id,
         created_by_username=current_user.username,
         material_center_code=current_user.material_center_code,
-        sales_person_id=sales_person.id,
-        sales_person_name=sales_person.full_name,
+        sales_person_id=sales_person.busy_code,
+        sales_person_name=sales_person.name,
     )
     return OutboxJobOut.model_validate(job)

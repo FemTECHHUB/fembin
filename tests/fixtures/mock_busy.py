@@ -61,9 +61,30 @@ _PAGINATABLE_MATERIAL_CENTERS: list[dict[str, str]] = [
         "DeactiveMaster": "False",
     },
 ]
+_PAGINATABLE_SALESMEN: list[dict[str, str]] = [
+    {
+        "Code": "401",
+        "Name": "Femi Sales",
+        "Alias": "",
+        "ParentGrp": "0",
+        "Stamp": "7",
+        "BlockedMaster": "False",
+        "DeactiveMaster": "False",
+    },
+    {
+        "Code": "402",
+        "Name": "Chidi Sales",
+        "Alias": "",
+        "ParentGrp": "0",
+        "Stamp": "8",
+        "BlockedMaster": "False",
+        "DeactiveMaster": "False",
+    },
+]
 _PAGINATABLE_DATASETS: dict[int, list[dict[str, str]]] = {
     6: _PAGINATABLE_ITEMS,
     11: _PAGINATABLE_MATERIAL_CENTERS,
+    33: _PAGINATABLE_SALESMEN,
 }
 
 _TOP_RE = re.compile(r"SELECT TOP (\d+)")

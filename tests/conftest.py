@@ -24,7 +24,7 @@ from app.db.models import (
     Category,
     MaterialCenter,
     Product,
-    SalesPerson,
+    Salesman,
     SyncState,
     User,
     WooSyncState,
@@ -32,7 +32,6 @@ from app.db.models import (
 from app.db.session import SessionLocal
 from app.domain.auth.tokens import create_access_token
 from app.domain.auth.users import create_user
-from app.domain.orders.sales_people import create_sales_person
 from app.integrations.woocommerce import WooCommerceClient
 from app.outbox.models import OutboxJob
 from tests.fixtures.mock_busy import run_mock_busy_server
@@ -95,7 +94,7 @@ def catalog_sync_settings() -> Iterator[Settings]:
 
 def _clean_catalog_tables(session: Session) -> None:
     session.query(User).delete()  # FK to material_centers — must go first
-    session.query(SalesPerson).delete()  # same
+    session.query(Salesman).delete()
     session.query(Product).delete()
     session.query(Category).delete()
     session.query(MaterialCenter).delete()
@@ -149,10 +148,14 @@ def auth_headers(test_user: User) -> dict[str, str]:
 
 
 @pytest.fixture
-def sales_person(db_session: Session, material_center: MaterialCenter) -> SalesPerson:
-    return create_sales_person(
-        db_session, full_name="Femi Sales", material_center_code=material_center.busy_code
-    )
+def salesman(db_session: Session) -> Salesman:
+    """A BUSY-synced-shaped salesman row (matches how sync_salesmen would insert one) —
+    for tests that need a real, active sales person without going through a full sync."""
+    person = Salesman(busy_code=401, name="Femi Sales", is_active=True)
+    db_session.add(person)
+    db_session.commit()
+    db_session.refresh(person)
+    return person
 
 
 @pytest.fixture
