@@ -18,7 +18,12 @@ class ProductOut(BaseModel):
     tracks_stock: bool
     is_active: bool
     woo_product_id: int | None
+    barcode: str | None
     updated_at: datetime
+
+
+class ProductBarcodeUpdateRequest(BaseModel):
+    barcode: str
 
 
 class CategoryOut(BaseModel):

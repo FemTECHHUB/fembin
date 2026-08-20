@@ -55,7 +55,9 @@
 <p class="muted">
   Talks directly to this same server's <code>/api/v1</code> routes. Every action here is
   tied to whichever user is logged in — quotations are always created against, and listed
-  from, that user's own material center (CLAUDE.md NFR6). Not a production UI.
+  from, that user's own material center (CLAUDE.md NFR6). The sales person picked below is
+  separate from the login and is who actually gets credited for the sale. Not a production UI —
+  see <code>/admin</code> for the superadmin dashboard (manage users, sales people, barcodes).
 </p>
 
 <section id="login-section">
@@ -81,6 +83,13 @@
       <label>Sale type <input id="q-saletype" value="Repair" /></label>
       <label>VchNo prefix <input id="q-prefix" value="RCC" /></label>
     </div>
+    <label>Sales person <select id="q-salesperson"></select></label>
+    <p class="muted" id="sp-empty-note" style="display:none;">
+      No sales people set up for your branch yet — ask a superadmin to add one at
+      <code>/admin</code> before you can create a quotation.
+    </p>
+
+    <label>Scan barcode <input id="barcode-input" autocomplete="off" placeholder="Scan or type a barcode, then press Enter" /></label>
 
     <h3 style="margin-bottom:0;">Items</h3>
     <div id="item-rows"></div>
@@ -102,7 +111,7 @@
     <button id="refresh-btn">Refresh now</button>
     <table>
       <thead>
-        <tr><th>ID</th><th>Status</th><th>VchNo</th><th>VchCode</th><th>Attempts</th><th>Last error</th><th>Created</th></tr>
+        <tr><th>ID</th><th>Status</th><th>Sales person</th><th>VchNo</th><th>VchCode</th><th>Attempts</th><th>Last error</th><th>Created</th></tr>
       </thead>
       <tbody id="quotes-body"></tbody>
     </table>
@@ -114,6 +123,7 @@ const API = "/api/v1";
 let token = sessionStorage.getItem("fembin_token") || null;
 let pollHandle = null;
 let products = [];
+let salesPeople = [];
 
 function todayDDMMYYYY() {
   const d = new Date();
@@ -146,6 +156,55 @@ function showApp(show) {
 async function loadProducts() {
   products = await api("/products?active=true");
 }
+
+async function loadSalesPeople() {
+  salesPeople = await api("/sales-people");
+  const select = document.getElementById("q-salesperson");
+  select.innerHTML = salesPeople.length
+    ? `<option value="">— select who's making this sale —</option>` +
+      salesPeople.map(p => `<option value="${p.id}">${p.full_name}</option>`).join("")
+    : "";
+  document.getElementById("sp-empty-note").style.display = salesPeople.length ? "none" : "block";
+}
+
+function findRowByProductCode(code) {
+  return [...document.querySelectorAll("#item-rows .item-row")]
+    .find(row => row.querySelector(".i-product").value === String(code));
+}
+
+function selectProductInRow(row, product) {
+  row.querySelector(".i-product").value = String(product.busy_code);
+  row.querySelector(".i-unit").value = product.unit;
+  row.querySelector(".i-price").value = product.price;
+  recomputeAmount(row);
+}
+
+document.getElementById("barcode-input").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const input = e.target;
+  const code = input.value.trim();
+  input.value = "";
+  if (!code) return;
+
+  const product = products.find(p => p.barcode === code);
+  if (!product) {
+    document.getElementById("quote-error").textContent = `No product matches barcode "${code}".`;
+    return;
+  }
+  document.getElementById("quote-error").textContent = "";
+
+  const existingRow = findRowByProductCode(product.busy_code);
+  if (existingRow) {
+    existingRow.querySelector(".i-qty").value = (parseFloat(existingRow.querySelector(".i-qty").value) || 0) + 1;
+    recomputeAmount(existingRow);
+    return;
+  }
+  const emptyRow = [...document.querySelectorAll("#item-rows .item-row")]
+    .find(row => !row.querySelector(".i-product").value);
+  const row = emptyRow || (addItemRow(), document.querySelector("#item-rows .item-row:last-child"));
+  selectProductInRow(row, product);
+});
 
 function productOptionsHtml() {
   const options = products
@@ -212,9 +271,11 @@ async function loadQuotations() {
   const jobs = await api("/quotations");
   const rows = jobs.map(j => {
     const result = j.result || {};
+    const payload = j.payload || {};
     return `<tr>
       <td>${j.id}</td>
       <td>${statusBadge(j.status)}</td>
+      <td>${payload.sales_person_name ?? ""}</td>
       <td>${result.vch_no ?? ""}</td>
       <td>${result.vch_code ?? ""}</td>
       <td>${j.attempts}</td>
@@ -222,7 +283,7 @@ async function loadQuotations() {
       <td>${new Date(j.created_at).toLocaleString()}</td>
     </tr>`;
   }).join("");
-  document.getElementById("quotes-body").innerHTML = rows || `<tr><td colspan="7" class="muted">No quotations yet.</td></tr>`;
+  document.getElementById("quotes-body").innerHTML = rows || `<tr><td colspan="8" class="muted">No quotations yet.</td></tr>`;
   document.getElementById("refresh-note").textContent = `(as of ${new Date().toLocaleTimeString()})`;
 }
 
@@ -230,6 +291,7 @@ async function enterApp() {
   showApp(true);
   document.getElementById("q-date").value = todayDDMMYYYY();
   await loadProducts();
+  await loadSalesPeople();
   document.getElementById("item-rows").innerHTML = "";
   addItemRow();
   await loadWhoami();
@@ -273,6 +335,11 @@ document.getElementById("submit-quote-btn").addEventListener("click", async () =
     document.getElementById("quote-error").textContent = "Select a product for every item row.";
     return;
   }
+  const salesPersonId = document.getElementById("q-salesperson").value;
+  if (!salesPersonId) {
+    document.getElementById("quote-error").textContent = "Select who's making this sale.";
+    return;
+  }
   try {
     await api("/quotations", {
       method: "POST",
@@ -282,6 +349,7 @@ document.getElementById("submit-quote-btn").addEventListener("click", async () =
         date: document.getElementById("q-date").value,
         sale_type_name: document.getElementById("q-saletype").value,
         customer_name: document.getElementById("q-customer").value,
+        sales_person_id: Number(salesPersonId),
         items,
       }),
     });

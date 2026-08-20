@@ -30,6 +30,7 @@ def create_user(
     password: str,
     full_name: str,
     material_center_code: int,
+    is_superadmin: bool = False,
 ) -> User:
     """Register a new app user tied to a material center. Fails loudly if the username is
     taken or the material center doesn't exist/isn't active — a user must always resolve to
@@ -46,6 +47,7 @@ def create_user(
         password_hash=hash_password(password),
         full_name=full_name,
         material_center_code=material_center_code,
+        is_superadmin=is_superadmin,
     )
     session.add(user)
     session.commit()
@@ -59,3 +61,9 @@ def authenticate_user(session: Session, *, username: str, password: str) -> User
     if user is None or not user.is_active or not verify_password(password, user.password_hash):
         raise InvalidCredentialsError(username)
     return user
+
+
+def list_users(session: Session) -> list[User]:
+    """Every user, every branch — superadmin dashboard only (app/api/v1/admin.py); the
+    regular per-branch scoping (CLAUDE.md NFR6) doesn't apply here by design."""
+    return list(session.scalars(select(User).order_by(User.username)))

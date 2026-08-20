@@ -36,3 +36,14 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_current_superadmin(current_user: CurrentUser) -> User:
+    """Same as CurrentUser, but 403s anyone who isn't a superadmin — for user management
+    and the cross-branch admin dashboard, both of which must not be self-service."""
+    if not current_user.is_superadmin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "superadmin access required")
+    return current_user
+
+
+SuperadminUser = Annotated[User, Depends(get_current_superadmin)]

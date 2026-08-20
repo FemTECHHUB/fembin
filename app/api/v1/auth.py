@@ -1,11 +1,10 @@
-"""Auth routes — thin (CLAUDE.md §3). User creation is deliberately open for now (there's
-no admin/permissions system yet — the user explicitly chose to defer that); this must be
-locked down before Sprint 5's pilot rollout, same as the outbox worker's current
-single-process assumption."""
+"""Auth routes — thin (CLAUDE.md §3). User creation requires an existing superadmin
+(locked down 2026-08-20, at explicit request — the first superadmin must be created via
+scripts/create_superadmin.py, not over HTTP, to avoid a self-service admin hole)."""
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.v1.deps import CurrentUser, DbSession, SettingsDep
+from app.api.v1.deps import CurrentUser, DbSession, SettingsDep, SuperadminUser
 from app.api.v1.schemas_auth import (
     CurrentUserOut,
     LoginRequest,
@@ -27,7 +26,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/users", response_model=UserOut, status_code=201)
-def create_user_route(body: UserCreateRequest, db: DbSession) -> UserOut:
+def create_user_route(body: UserCreateRequest, db: DbSession, _: SuperadminUser) -> UserOut:
     try:
         user = create_user(
             db,
@@ -66,4 +65,5 @@ def current_user_route(current_user: CurrentUser, db: DbSession) -> CurrentUserO
         full_name=current_user.full_name,
         material_center_code=current_user.material_center_code,
         material_center_name=material_center_name,
+        is_superadmin=current_user.is_superadmin,
     )

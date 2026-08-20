@@ -133,19 +133,25 @@ def enqueue_sale_quotation(
     created_by_user_id: int,
     created_by_username: str,
     material_center_code: int,
+    sales_person_id: int,
+    sales_person_name: str,
 ) -> OutboxJob:
     """Just a local DB insert (app/outbox/queue.py) — safe to call inline from a request
     handler. `VchNo` isn't computed yet; that happens in the worker, at post time (see
     module docstring for why).
 
     `created_by_*`/`material_center_code` record which authenticated user (CLAUDE.md NFR6)
-    and branch this action belongs to — stored alongside the request, not inside the BUSY
-    XML itself (SaleQuotation has no confirmed Narration/Remarks field to stamp identity
-    into; see CLAUDE.md §8)."""
+    and branch this action belongs to; `sales_person_*` records which named individual
+    actually made the sale (distinct from the logged-in user — several people may share
+    one login). All stored alongside the request, not inside the BUSY XML itself
+    (SaleQuotation has no confirmed Narration/Remarks field to stamp identity into; see
+    CLAUDE.md §8)."""
     payload = _request_to_payload(request)
     payload["created_by_user_id"] = created_by_user_id
     payload["created_by_username"] = created_by_username
     payload["material_center_code"] = material_center_code
+    payload["sales_person_id"] = sales_person_id
+    payload["sales_person_name"] = sales_person_name
     return enqueue(
         session,
         job_type=JOB_TYPE,

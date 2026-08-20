@@ -167,8 +167,25 @@ to exactly one Material Center — this is NFR6 (§8 NFRs table below) pulled fo
 Sprint 5, at explicit request, so the quotation endpoints above could be scoped to a real
 identity rather than free-text caller input. `POST /api/v1/quotations` now requires this
 token and always uses the caller's own material center; `GET /api/v1/quotations` is scoped
-to it. There is still no admin/permissions system — user creation is open to any caller —
-this must be locked down before Sprint 5's pilot rollout, not left as-is.
+to it.
+
+**Extended further, 2026-08-20, still at explicit request, still ahead of Sprint 5:**
+- `User.is_superadmin` — `POST /api/v1/auth/users` now requires an authenticated
+  superadmin rather than being open to any caller (the gap flagged in the paragraph above
+  is closed). The very first superadmin has no HTTP path by design — bootstrap it with
+  `scripts/create_superadmin.py`. A cross-branch dashboard (`GET /api/v1/admin/users`,
+  `/admin/quotations`, `/admin/sales-people`, served at `/admin`) lets a superadmin see
+  everything rather than only their own material center.
+- `sales_people` table (`app/domain/orders/sales_people.py`) — a named individual
+  credited on a quotation, distinct from the logged-in `User` (several people may share
+  one till/login). Tied to one material center like `User`, but a superadmin can reassign
+  it (`PATCH /api/v1/admin/sales-people/{id}`) without deleting history. Stored in the
+  outbox job's own payload, **not** in the BUSY XML — there is no confirmed
+  Narration/Remarks field on `SaleQuotation` to carry it (CLAUDE.md §8).
+- `Product.barcode` — local-only, **not** BUSY data. Live-checked 2026-08-20: this
+  company's real Item master has no barcode field populated anywhere (CLAUDE.md §8).
+  Assigned via `PUT /api/v1/products/{code}/barcode` (superadmin-only); the console's
+  scan input matches against it client-side to auto-select an item row.
 
 ### API endpoints
 

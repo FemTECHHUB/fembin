@@ -28,6 +28,22 @@ def test_create_user_ties_to_a_real_material_center(
     assert user.id is not None
     assert user.material_center_code == material_center.busy_code
     assert user.password_hash != "test-pass-123"  # never stored as plaintext
+    assert user.is_superadmin is False
+
+
+def test_create_user_can_be_a_superadmin(
+    db_session: Session, material_center: MaterialCenter
+) -> None:
+    user = create_user(
+        db_session,
+        username="root.admin",
+        password="test-pass-999",
+        full_name="Root Admin",
+        material_center_code=material_center.busy_code,
+        is_superadmin=True,
+    )
+
+    assert user.is_superadmin is True
 
 
 def test_create_user_rejects_unknown_material_center(db_session: Session) -> None:

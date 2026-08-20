@@ -21,6 +21,7 @@ class UserOut(BaseModel):
     full_name: str
     material_center_code: int
     is_active: bool
+    is_superadmin: bool
     created_at: datetime
 
 
@@ -30,6 +31,7 @@ class CurrentUserOut(BaseModel):
     full_name: str
     material_center_code: int
     material_center_name: str
+    is_superadmin: bool
 
 
 class LoginRequest(BaseModel):

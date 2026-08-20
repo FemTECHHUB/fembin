@@ -90,6 +90,8 @@ def test_enqueue_sale_quotation_creates_outbox_job_without_computing_vchno(
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
 
     assert job.job_type == JOB_TYPE
@@ -122,6 +124,8 @@ async def test_worker_processes_a_queued_sale_quotation_end_to_end(
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
 
     processed = await process_next_job(db_session, busy_client)
@@ -174,6 +178,8 @@ def test_list_quotations_returns_most_recent_first(db_session: Session) -> None:
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
     second = enqueue_sale_quotation(
         db_session,
@@ -182,6 +188,8 @@ def test_list_quotations_returns_most_recent_first(db_session: Session) -> None:
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
 
     jobs = list_quotations(db_session)
@@ -198,6 +206,8 @@ def test_list_quotations_scoped_to_material_center(db_session: Session) -> None:
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
     enqueue_sale_quotation(
         db_session,
@@ -206,6 +216,8 @@ def test_list_quotations_scoped_to_material_center(db_session: Session) -> None:
         created_by_user_id=2,
         created_by_username="jane.cashier",
         material_center_code=1155,
+        sales_person_id=20,
+        sales_person_name="Chidi Sales",
     )
 
     jobs = list_quotations(db_session, material_center_code=201)
@@ -223,6 +235,8 @@ async def test_list_quotations_reflects_status_after_processing(
         created_by_user_id=1,
         created_by_username="taiwo.rep",
         material_center_code=201,
+        sales_person_id=10,
+        sales_person_name="Femi Sales",
     )
     await process_next_job(db_session, busy_client)
 

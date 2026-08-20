@@ -11,7 +11,17 @@ from uuid import uuid4
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 
-from app.api.v1 import auth, categories, material_centers, outbox, products, quotations, sync
+from app.api.v1 import (
+    admin,
+    auth,
+    categories,
+    material_centers,
+    outbox,
+    products,
+    quotations,
+    sales_people,
+    sync,
+)
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.domain.catalog.scheduler import catalog_sync_loop
@@ -104,6 +114,13 @@ def create_app() -> FastAPI:
         # server, same-origin so no CORS is needed) — not part of the real product API.
         return FileResponse(Path(__file__).parent / "static" / "console.html")
 
+    @app.get("/admin", include_in_schema=False)
+    async def admin_dashboard() -> FileResponse:
+        # Same idea as /console but for superadmin-only views (all users, all quotations
+        # across every branch, sales-people management) — the API itself still enforces
+        # SuperadminUser, this page is just the surface for it.
+        return FileResponse(Path(__file__).parent / "static" / "admin.html")
+
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(products.router, prefix="/api/v1")
     app.include_router(categories.router, prefix="/api/v1")
@@ -111,6 +128,8 @@ def create_app() -> FastAPI:
     app.include_router(sync.router, prefix="/api/v1")
     app.include_router(quotations.router, prefix="/api/v1")
     app.include_router(outbox.router, prefix="/api/v1")
+    app.include_router(sales_people.router, prefix="/api/v1")
+    app.include_router(admin.router, prefix="/api/v1")
 
     return app
 

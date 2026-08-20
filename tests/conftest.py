@@ -20,10 +20,19 @@ from sqlalchemy.orm import Session
 
 from app.busy.client import BusyClient
 from app.config import Settings, get_settings
-from app.db.models import Category, MaterialCenter, Product, SyncState, User, WooSyncState
+from app.db.models import (
+    Category,
+    MaterialCenter,
+    Product,
+    SalesPerson,
+    SyncState,
+    User,
+    WooSyncState,
+)
 from app.db.session import SessionLocal
 from app.domain.auth.tokens import create_access_token
 from app.domain.auth.users import create_user
+from app.domain.orders.sales_people import create_sales_person
 from app.integrations.woocommerce import WooCommerceClient
 from app.outbox.models import OutboxJob
 from tests.fixtures.mock_busy import run_mock_busy_server
@@ -86,6 +95,7 @@ def catalog_sync_settings() -> Iterator[Settings]:
 
 def _clean_catalog_tables(session: Session) -> None:
     session.query(User).delete()  # FK to material_centers — must go first
+    session.query(SalesPerson).delete()  # same
     session.query(Product).delete()
     session.query(Category).delete()
     session.query(MaterialCenter).delete()
@@ -135,4 +145,29 @@ def auth_headers(test_user: User) -> dict[str, str]:
     (get_settings(), the same lru_cached instance app/api/v1/deps.py decodes with), not a
     throwaway secret, so the token verifies against a real running app."""
     token = create_access_token(test_user, settings=get_settings())
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def sales_person(db_session: Session, material_center: MaterialCenter) -> SalesPerson:
+    return create_sales_person(
+        db_session, full_name="Femi Sales", material_center_code=material_center.busy_code
+    )
+
+
+@pytest.fixture
+def superadmin_user(db_session: Session, material_center: MaterialCenter) -> User:
+    return create_user(
+        db_session,
+        username="root.admin",
+        password="test-pass-999",
+        full_name="Root Admin",
+        material_center_code=material_center.busy_code,
+        is_superadmin=True,
+    )
+
+
+@pytest.fixture
+def superadmin_headers(superadmin_user: User) -> dict[str, str]:
+    token = create_access_token(superadmin_user, settings=get_settings())
     return {"Authorization": f"Bearer {token}"}

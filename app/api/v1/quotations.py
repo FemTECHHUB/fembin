@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.v1.deps import CurrentUser, DbSession
 from app.api.v1.schemas_outbox import OutboxJobOut, QuotationCreateRequest
-from app.db.models import MaterialCenter
+from app.db.models import MaterialCenter, SalesPerson
 from app.domain.orders.quotations import (
     QuotationItem,
     QuotationRequest,
@@ -40,6 +40,17 @@ def create_sale_quotation_route(
             "your assigned material center no longer exists in our mirror",
         )
 
+    sales_person = db.get(SalesPerson, body.sales_person_id)
+    if (
+        sales_person is None
+        or not sales_person.is_active
+        or sales_person.material_center_code != current_user.material_center_code
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "sales_person_id does not match an active sales person at your material center",
+        )
+
     request = QuotationRequest(
         vch_series_name=body.vch_series_name,
         vch_no_prefix=body.vch_no_prefix,
@@ -65,5 +76,7 @@ def create_sale_quotation_route(
         created_by_user_id=current_user.id,
         created_by_username=current_user.username,
         material_center_code=current_user.material_center_code,
+        sales_person_id=sales_person.id,
+        sales_person_name=sales_person.full_name,
     )
     return OutboxJobOut.model_validate(job)

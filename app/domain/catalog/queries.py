@@ -10,6 +10,14 @@ from sqlalchemy.orm import Session
 from app.db.models import Category, MaterialCenter, Product, SyncState
 
 
+class ProductNotFoundError(Exception):
+    """Raised when a busy_code doesn't match any product in our mirror."""
+
+
+class DuplicateBarcodeError(Exception):
+    """Raised when a barcode is already assigned to a different product."""
+
+
 def list_products(
     session: Session,
     *,
@@ -30,6 +38,26 @@ def list_products(
 
 def get_product(session: Session, code: int) -> Product | None:
     return session.get(Product, code)
+
+
+def set_product_barcode(session: Session, code: int, barcode: str) -> Product:
+    """Assign a barcode to a product — local-only (CLAUDE.md §8: this company's real Item
+    master has no barcode data). Catalog sync never touches this column, so it survives
+    every re-sync."""
+    product = session.get(Product, code)
+    if product is None:
+        raise ProductNotFoundError(code)
+
+    existing = session.scalar(
+        select(Product).where(Product.barcode == barcode, Product.busy_code != code)
+    )
+    if existing is not None:
+        raise DuplicateBarcodeError(barcode)
+
+    product.barcode = barcode
+    session.commit()
+    session.refresh(product)
+    return product
 
 
 def list_categories(session: Session) -> list[Category]:

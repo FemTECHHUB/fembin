@@ -45,24 +45,51 @@ the catalog sync scheduler are both off by default per-process — set
 ### Auth
 
 Every user is tied to exactly one `MaterialCenter` (branch) — CLAUDE.md NFR6: actions need
-a real identity, not just the shared BUSY service account. `POST /api/v1/auth/users`
-creates a user against an existing, active material center; `POST /api/v1/auth/login`
+a real identity, not just the shared BUSY service account. `POST /api/v1/auth/login`
 returns a JWT (`JWT_SECRET_KEY` — set a real one outside dev, see `.env.example`).
 
 The Sale Quotation routes require this token: `material_center_name` is no longer a
 request field — it's always the caller's own assigned branch, and `GET /api/v1/quotations`
-only ever shows that branch's quotations. There's no admin/permissions layer yet (user
-creation is currently open to anyone) — this must be locked down before Sprint 5's pilot
-rollout.
+only ever shows that branch's quotations.
+
+`POST /api/v1/auth/users` requires an authenticated **superadmin** (`User.is_superadmin`).
+Since that's a chicken-and-egg problem for the very first one, bootstrap it by hand:
 
 ```bash
-curl -s -X POST localhost:8000/api/v1/auth/users -H 'content-type: application/json' -d \
-  '{"username":"taiwo.rep","password":"...","full_name":"Taiwo","material_center_code":201}'
+uv run python scripts/create_superadmin.py \
+  --username admin --password '...' --full-name "Admin" --material-center-code 201
+```
+
+```bash
 curl -s -X POST localhost:8000/api/v1/auth/login -H 'content-type: application/json' -d \
   '{"username":"taiwo.rep","password":"..."}'
 # -> {"access_token": "...", "token_type": "bearer"}
 curl -s localhost:8000/api/v1/quotations -H 'Authorization: Bearer <token>'
 ```
+
+### Sales people and barcodes
+
+Every Sale Quotation also names a `SalesPerson` (`sales_person_id`, `app/domain/orders/
+sales_people.py`) — distinct from the logged-in `User`, since several people can share one
+till/login. Tied to one material center like `User`, but a superadmin can move one to a
+different branch (`PATCH /api/v1/admin/sales-people/{id}`) without losing history. This is
+local-only data, stored in the outbox job's payload — **not** written into the BUSY XML,
+since `SaleQuotation` has no confirmed Narration/Remarks field to carry it (CLAUDE.md §8).
+
+Products can carry a `barcode` (`PUT /api/v1/products/{code}/barcode`, superadmin-only) —
+also local-only. Checked live 2026-08-20: this company's real BUSY Item master has **no**
+barcode data anywhere, so this can't "match BUSY" — it's ours to maintain (CLAUDE.md §8).
+
+### Dev-only test pages
+
+`/console` — a small dependency-free HTML page (`app/static/console.html`, served
+same-origin so no CORS is needed) for manually testing login, picking a sales person,
+scanning/picking products, and creating/watching Sale Quotations. Not a production UI.
+
+`/admin` (`app/static/admin.html`) — the same idea, for a superadmin: every user, every
+quotation regardless of branch, sales-people management (create, reassign,
+activate/deactivate), and barcode assignment. Backed by `GET /api/v1/admin/users`,
+`/admin/quotations`, `/admin/sales-people`, and `PATCH /api/v1/admin/sales-people/{id}`.
 
 Every HTTP request is access-logged (`app.access` logger: method, path, status, duration).
 Every catalog sync / outbox drain is logged per step with timing. Two ops scripts log a
