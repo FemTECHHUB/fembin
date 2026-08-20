@@ -164,7 +164,7 @@ async function loadSalesPeople() {
   const select = document.getElementById("q-salesperson");
   select.innerHTML = salesPeople.length
     ? `<option value="">— select who's making this sale —</option>` +
-      salesPeople.map(p => `<option value="${p.id}">${p.full_name}</option>`).join("")
+      salesPeople.map(p => `<option value="${p.busy_code}">${p.name}</option>`).join("")
     : "";
   document.getElementById("sp-empty-note").style.display = salesPeople.length ? "none" : "block";
 }
