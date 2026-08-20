@@ -24,6 +24,14 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class CurrentUserOut(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    material_center_code: int
+    material_center_name: str
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str

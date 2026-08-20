@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>fembin — dev test console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.4;
+  }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; }
+  section {
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  label { display: block; font-size: 0.85rem; opacity: 0.8; margin-top: 0.6rem; }
+  input, select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4rem 0.5rem;
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
+  }
+  button {
+    margin-top: 0.9rem;
+    padding: 0.45rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+  .badge { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+  .badge-queued { background: #6b7280; color: white; }
+  .badge-running { background: #d97706; color: white; }
+  .badge-done { background: #16a34a; color: white; }
+  .badge-failed { background: #dc2626; color: white; }
+  .item-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 0.4rem; align-items: end; margin-top: 0.4rem; }
+  .item-row label { margin-top: 0; }
+  .error { color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; white-space: pre-wrap; }
+  .muted { opacity: 0.65; font-size: 0.85rem; }
+  #app-main { display: none; }
+</style>
+</head>
+<body>
+
+<h1>fembin — dev test console</h1>
+<p class="muted">
+  Talks directly to this same server's <code>/api/v1</code> routes. Every action here is
+  tied to whichever user is logged in — quotations are always created against, and listed
+  from, that user's own material center (CLAUDE.md NFR6). Not a production UI.
+</p>
+
+<section id="login-section">
+  <h2>Login</h2>
+  <label>Username <input id="login-username" autocomplete="username" /></label>
+  <label>Password <input id="login-password" type="password" autocomplete="current-password" /></label>
+  <button id="login-btn">Log in</button>
+  <div class="error" id="login-error"></div>
+</section>
+
+<div id="app-main">
+  <section>
+    <h2>Logged in as</h2>
+    <div id="whoami"></div>
+    <button id="logout-btn">Log out</button>
+  </section>
+
+  <section>
+    <h2>New Sale Quotation</h2>
+    <label>Customer name <input id="q-customer" value="Console Test Customer" /></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem;">
+      <label>Date (DD-MM-YYYY) <input id="q-date" /></label>
+      <label>Sale type <input id="q-saletype" value="Repair" /></label>
+      <label>VchNo prefix <input id="q-prefix" value="RCC" /></label>
+    </div>
+
+    <h3 style="margin-bottom:0;">Items</h3>
+    <div id="item-rows"></div>
+    <button type="button" id="add-item-btn">+ Add item</button>
+
+    <div>
+      <button id="submit-quote-btn">Create quotation</button>
+    </div>
+    <div class="error" id="quote-error"></div>
+    <p class="muted">
+      This only enqueues locally (safe — CLAUDE.md §2.2). It's posted to real BUSY by the
+      outbox worker, which only runs if the server was started with
+      <code>OUTBOX_WORKER_ENABLED=true</code>. Otherwise it'll sit as "queued" here.
+    </p>
+  </section>
+
+  <section>
+    <h2>Your quotations <span class="muted" id="refresh-note"></span></h2>
+    <button id="refresh-btn">Refresh now</button>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Status</th><th>VchNo</th><th>VchCode</th><th>Attempts</th><th>Last error</th><th>Created</th></tr>
+      </thead>
+      <tbody id="quotes-body"></tbody>
+    </table>
+  </section>
+</div>
+
+<script>
+const API = "/api/v1";
+let token = sessionStorage.getItem("fembin_token") || null;
+let pollHandle = null;
+
+function todayDDMMYYYY() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
+function authHeaders() {
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
+
+async function api(path, options = {}) {
+  const resp = await fetch(API + path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...authHeaders(), ...(options.headers || {}) },
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
+    throw new Error(`${resp.status}: ${detail}`);
+  }
+  return body;
+}
+
+function showApp(show) {
+  document.getElementById("login-section").style.display = show ? "none" : "block";
+  document.getElementById("app-main").style.display = show ? "block" : "none";
+}
+
+function addItemRow(values) {
+  const row = document.createElement("div");
+  row.className = "item-row";
+  const v = values || { item_name: "", unit_name: "Pcs.", qty: "1", price: "0", amount: "0" };
+  row.innerHTML = `
+    <label>Item name <input class="i-name" value="${v.item_name}" /></label>
+    <label>Unit <input class="i-unit" value="${v.unit_name}" /></label>
+    <label>Qty <input class="i-qty" value="${v.qty}" /></label>
+    <label>Price <input class="i-price" value="${v.price}" /></label>
+    <label>Amount <input class="i-amount" value="${v.amount}" /></label>
+    <button type="button" class="remove-item-btn">✕</button>
+  `;
+  row.querySelector(".remove-item-btn").addEventListener("click", () => row.remove());
+  document.getElementById("item-rows").appendChild(row);
+}
+
+function collectItems() {
+  return [...document.querySelectorAll("#item-rows .item-row")].map(row => ({
+    item_name: row.querySelector(".i-name").value,
+    unit_name: row.querySelector(".i-unit").value,
+    qty: row.querySelector(".i-qty").value,
+    price: row.querySelector(".i-price").value,
+    amount: row.querySelector(".i-amount").value,
+  }));
+}
+
+function statusBadge(status) {
+  return `<span class="badge badge-${status}">${status}</span>`;
+}
+
+async function loadWhoami() {
+  const me = await api("/auth/me");
+  document.getElementById("whoami").innerHTML =
+    `<strong>${me.username}</strong> (${me.full_name}) — ` +
+    `${me.material_center_name} <span class="muted">(code ${me.material_center_code})</span>`;
+}
+
+async function loadQuotations() {
+  const jobs = await api("/quotations");
+  const rows = jobs.map(j => {
+    const result = j.result || {};
+    return `<tr>
+      <td>${j.id}</td>
+      <td>${statusBadge(j.status)}</td>
+      <td>${result.vch_no ?? ""}</td>
+      <td>${result.vch_code ?? ""}</td>
+      <td>${j.attempts}</td>
+      <td>${j.last_error ?? ""}</td>
+      <td>${new Date(j.created_at).toLocaleString()}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("quotes-body").innerHTML = rows || `<tr><td colspan="7" class="muted">No quotations yet.</td></tr>`;
+  document.getElementById("refresh-note").textContent = `(as of ${new Date().toLocaleTimeString()})`;
+}
+
+async function enterApp() {
+  showApp(true);
+  document.getElementById("q-date").value = todayDDMMYYYY();
+  document.getElementById("item-rows").innerHTML = "";
+  addItemRow();
+  await loadWhoami();
+  await loadQuotations();
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = setInterval(loadQuotations, 4000);
+}
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
+  document.getElementById("login-error").textContent = "";
+  try {
+    const { access_token } = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+    token = access_token;
+    sessionStorage.setItem("fembin_token", token);
+    await enterApp();
+  } catch (e) {
+    document.getElementById("login-error").textContent = e.message;
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  token = null;
+  sessionStorage.removeItem("fembin_token");
+  if (pollHandle) clearInterval(pollHandle);
+  showApp(false);
+});
+
+document.getElementById("add-item-btn").addEventListener("click", () => addItemRow());
+
+document.getElementById("refresh-btn").addEventListener("click", () => loadQuotations().catch(e => alert(e.message)));
+
+document.getElementById("submit-quote-btn").addEventListener("click", async () => {
+  document.getElementById("quote-error").textContent = "";
+  try {
+    await api("/quotations", {
+      method: "POST",
+      body: JSON.stringify({
+        idempotency_key: crypto.randomUUID(),
+        vch_no_prefix: document.getElementById("q-prefix").value,
+        date: document.getElementById("q-date").value,
+        sale_type_name: document.getElementById("q-saletype").value,
+        customer_name: document.getElementById("q-customer").value,
+        items: collectItems(),
+      }),
+    });
+    await loadQuotations();
+  } catch (e) {
+    document.getElementById("quote-error").textContent = e.message;
+  }
+});
+
+if (token) {
+  enterApp().catch(() => {
+    token = null;
+    sessionStorage.removeItem("fembin_token");
+    showApp(false);
+  });
+} else {
+  showApp(false);
+}
+</script>
+</body>
+</html>

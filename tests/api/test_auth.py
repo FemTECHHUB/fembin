@@ -47,6 +47,23 @@ def test_create_user_rejects_unknown_material_center(db_session: Session) -> Non
         assert resp.status_code == 422
 
 
+def test_current_user_route_returns_identity_and_material_center(
+    db_session: Session, auth_headers: dict[str, str], material_center: MaterialCenter
+) -> None:
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/auth/me", headers=auth_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["material_center_code"] == material_center.busy_code
+        assert body["material_center_name"] == material_center.name
+
+
+def test_current_user_route_requires_authentication(db_session: Session) -> None:
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/auth/me")
+        assert resp.status_code == 401
+
+
 def test_create_user_rejects_duplicate_username(
     db_session: Session, test_user: User, material_center: MaterialCenter
 ) -> None:

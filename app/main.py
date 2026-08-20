@@ -5,9 +5,11 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import FileResponse
 
 from app.api.v1 import auth, categories, material_centers, outbox, products, quotations, sync
 from app.config import get_settings
@@ -95,6 +97,12 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/console", include_in_schema=False)
+    async def console() -> FileResponse:
+        # Dev-only manual test page (login + Sale Quotation create/list against this same
+        # server, same-origin so no CORS is needed) — not part of the real product API.
+        return FileResponse(Path(__file__).parent / "static" / "console.html")
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(products.router, prefix="/api/v1")
