@@ -34,6 +34,11 @@ uv run uvicorn app.main:app --reload  # serves /health, the catalog read API, an
                                        # outbox/quotations endpoints under /api/v1
 ```
 
+The domain root (`/`) serves `app/static/docs.html` — a full frontend integration guide
+(auth flow, every endpoint, the quotation workflow end to end, error handling). That's
+what a browser sees hitting the bare server; FastAPI's interactive schema is still at
+`/docs` as usual.
+
 Every real BUSY write goes through the outbox queue (`app/outbox/`), never inline from a
 request handler (CLAUDE.md §2.2). `POST /api/v1/quotations` enqueues a Sale Quotation
 (shape confirmed live 2026-08-15, see CLAUDE.md §8); `GET /api/v1/quotations` lists all of

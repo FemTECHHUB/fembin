@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>fembin API — Frontend Integration Guide</title>
+
+<style>
+  :root {
+    --bg: #F5F7F5;
+    --surface: #FFFFFF;
+    --surface-raised: #FBFBFA;
+    --text: #1B2226;
+    --text-muted: #5B6B70;
+    --text-faint: #8A9599;
+    --border: rgba(27, 34, 38, 0.12);
+    --border-strong: rgba(27, 34, 38, 0.22);
+    --accent: #B5652A;
+    --accent-ink: #7A4419;
+    --accent-wash: rgba(181, 101, 42, 0.10);
+    --get: #2E8B67;
+    --get-wash: rgba(46, 139, 103, 0.10);
+    --put: #B07A17;
+    --put-wash: rgba(176, 122, 23, 0.10);
+    --delete: #B23B2E;
+    --delete-wash: rgba(178, 59, 46, 0.10);
+    --code-bg: #14181A;
+    --code-text: #DCE4E2;
+    --code-key: #7FC9A8;
+    --code-string: #E3B57A;
+    --code-num: #86AEDB;
+    --code-punct: #7C8A87;
+    --shadow: 0 1px 2px rgba(20, 24, 26, 0.04), 0 6px 20px rgba(20, 24, 26, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151A;
+      --surface: #171E24;
+      --surface-raised: #1D252C;
+      --text: #E9EEEE;
+      --text-muted: #98A7AC;
+      --text-faint: #667479;
+      --border: rgba(233, 238, 238, 0.10);
+      --border-strong: rgba(233, 238, 238, 0.18);
+      --accent: #E29A5C;
+      --accent-ink: #F3C393;
+      --accent-wash: rgba(226, 154, 92, 0.12);
+      --get: #56C398;
+      --get-wash: rgba(86, 195, 152, 0.12);
+      --put: #E0B24E;
+      --put-wash: rgba(224, 178, 78, 0.12);
+      --delete: #E17C6C;
+      --delete-wash: rgba(225, 124, 108, 0.12);
+      --code-bg: #0B0E10;
+      --code-text: #DCE4E2;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 10px 30px rgba(0, 0, 0, 0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151A; --surface: #171E24; --surface-raised: #1D252C; --text: #E9EEEE;
+    --text-muted: #98A7AC; --text-faint: #667479;
+    --border: rgba(233, 238, 238, 0.10); --border-strong: rgba(233, 238, 238, 0.18);
+    --accent: #E29A5C; --accent-ink: #F3C393; --accent-wash: rgba(226, 154, 92, 0.12);
+    --get: #56C398; --get-wash: rgba(86, 195, 152, 0.12);
+    --put: #E0B24E; --put-wash: rgba(224, 178, 78, 0.12);
+    --delete: #E17C6C; --delete-wash: rgba(225, 124, 108, 0.12);
+    --code-bg: #0B0E10; --code-text: #DCE4E2;
+    --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 10px 30px rgba(0,0,0,0.28);
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F5; --surface: #FFFFFF; --surface-raised: #FBFBFA; --text: #1B2226;
+    --text-muted: #5B6B70; --text-faint: #8A9599;
+    --border: rgba(27, 34, 38, 0.12); --border-strong: rgba(27, 34, 38, 0.22);
+    --accent: #B5652A; --accent-ink: #7A4419; --accent-wash: rgba(181, 101, 42, 0.10);
+    --get: #2E8B67; --get-wash: rgba(46, 139, 103, 0.10);
+    --put: #B07A17; --put-wash: rgba(176, 122, 23, 0.10);
+    --delete: #B23B2E; --delete-wash: rgba(178, 59, 46, 0.10);
+    --code-bg: #14181A; --code-text: #DCE4E2;
+    --shadow: 0 1px 2px rgba(20,24,26,0.04), 0 6px 20px rgba(20,24,26,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: Iowan Old Style, Palatino, "Palatino Linotype", Georgia, serif;
+    font-weight: 600;
+    color: var(--text);
+    text-wrap: balance;
+    line-height: 1.25;
+  }
+  code, pre, .mono, .path, kbd {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  a { color: var(--accent-ink); }
+  p { color: var(--text); }
+
+  /* ---------- Shell ---------- */
+  .shell { display: flex; max-width: 1400px; margin: 0 auto; align-items: flex-start; }
+  .sidebar {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    width: 272px; flex: 0 0 272px;
+    padding: 1.75rem 1.25rem 3rem 1.75rem;
+    border-right: 1px solid var(--border);
+  }
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+  .brand { display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 1.75rem; }
+  .brand .mark {
+    font-family: Iowan Old Style, Palatino, Georgia, serif; font-weight: 600;
+    font-size: 1.15rem; color: var(--text);
+  }
+  .brand .tag { font-size: 0.78rem; color: var(--text-muted); }
+  nav.toc { display: flex; flex-direction: column; gap: 0.15rem; }
+  nav.toc .group-label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-faint); margin: 1.1rem 0 0.35rem; font-weight: 600;
+  }
+  nav.toc .group-label:first-child { margin-top: 0; }
+  nav.toc a {
+    color: var(--text-muted); text-decoration: none; font-size: 0.88rem;
+    padding: 0.28rem 0.5rem; border-radius: 6px; display: flex; gap: 0.5rem; align-items: baseline;
+  }
+  nav.toc a:hover { color: var(--text); background: var(--surface-raised); }
+  nav.toc a .m {
+    font-size: 0.62rem; font-weight: 700; width: 2.6em; flex: 0 0 auto; text-align: right;
+    color: var(--text-faint);
+  }
+  nav.toc a .m.get { color: var(--get); }
+  nav.toc a .m.post { color: var(--accent); }
+  nav.toc a .m.put { color: var(--put); }
+
+  main { flex: 1 1 auto; min-width: 0; padding: 3rem clamp(1.25rem, 4vw, 4rem) 8rem; }
+  .content { max-width: 780px; }
+
+  /* ---------- Header ---------- */
+  .doc-header { max-width: 780px; margin-bottom: 3.5rem; }
+  .doc-header .eyebrow {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--accent); font-weight: 700; margin-bottom: 0.6rem;
+  }
+  .doc-header h1 { font-size: clamp(1.9rem, 3.4vw, 2.5rem); margin: 0 0 0.75rem; }
+  .doc-header .lede { font-size: 1.08rem; color: var(--text-muted); max-width: 62ch; margin: 0 0 1.5rem; }
+  .meta-row { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-faint); }
+  .meta-row strong { color: var(--text-muted); font-weight: 600; }
+
+  /* ---------- Sections ---------- */
+  section.doc-section { max-width: 780px; margin: 4rem 0; scroll-margin-top: 1.5rem; }
+  section.doc-section > h2 {
+    font-size: 1.55rem; margin: 0 0 0.3rem;
+    padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+  }
+  section.doc-section > .section-intro { color: var(--text-muted); margin: 0.9rem 0 1.6rem; max-width: 66ch; }
+  h3.sub { font-size: 1.15rem; margin: 2.2rem 0 0.6rem; }
+  h4 { font-size: 0.95rem; margin: 1.3rem 0 0.5rem; }
+  .content p { max-width: 68ch; }
+  .content ul, .content ol { max-width: 66ch; padding-left: 1.3em; }
+  .content li { margin: 0.35rem 0; }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border: 1px solid var(--border-strong); border-left: 3px solid var(--text-faint);
+    background: var(--surface-raised); border-radius: 8px;
+    padding: 0.85rem 1.1rem; margin: 1.1rem 0; font-size: 0.92rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .label {
+    font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+    display: block; margin-bottom: 0.3rem;
+  }
+  .callout.rule { border-left-color: var(--accent); }
+  .callout.rule .label { color: var(--accent-ink); }
+  .callout.warn { border-left-color: var(--delete); }
+  .callout.warn .label { color: var(--delete); }
+  .callout.note { border-left-color: var(--get); }
+  .callout.note .label { color: var(--get); }
+
+  /* ---------- Tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 0.8rem 0 1.4rem; border: 1px solid var(--border); border-radius: 10px; }
+  table.fields { width: 100%; border-collapse: collapse; font-size: 0.87rem; min-width: 480px; }
+  table.fields th {
+    text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-faint); padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border);
+    background: var(--surface-raised); font-weight: 600;
+  }
+  table.fields td { padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.fields tr:last-child td { border-bottom: none; }
+  table.fields td.f-name { font-family: ui-monospace, monospace; white-space: nowrap; color: var(--text); }
+  table.fields td.f-type { color: var(--accent-ink); white-space: nowrap; font-size: 0.82rem; }
+  table.fields td.f-desc { color: var(--text-muted); }
+  .req-badge {
+    display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+    padding: 0.05rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; letter-spacing: 0.03em;
+  }
+  .req-badge.required { background: var(--accent-wash); color: var(--accent-ink); }
+  .req-badge.optional { background: var(--surface-raised); color: var(--text-faint); border: 1px solid var(--border); }
+
+  /* ---------- Code blocks ---------- */
+  pre.code-block {
+    background: var(--code-bg); color: var(--code-text);
+    border-radius: 10px; padding: 1rem 1.1rem; overflow-x: auto;
+    font-size: 0.82rem; line-height: 1.55; margin: 0.6rem 0 1.4rem;
+    box-shadow: var(--shadow);
+  }
+  pre.code-block code { font-family: inherit; }
+  .k { color: var(--code-key); }
+  .s { color: var(--code-string); }
+  .n { color: var(--code-num); }
+  .p { color: var(--code-punct); }
+  .cm { color: var(--text-faint); font-style: italic; }
+  .code-label {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-faint); margin: 1.1rem 0 0.2rem; font-weight: 600;
+  }
+  .code-cols { display: grid; grid-template-columns: 1fr; gap: 0; }
+  @media (min-width: 620px) { .code-cols.two { grid-template-columns: 1fr 1fr; gap: 1rem; } }
+
+  /* ---------- Endpoint blocks ---------- */
+  article.endpoint {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.5rem 1.6rem 1.7rem; margin: 1.6rem 0 2.2rem; box-shadow: var(--shadow);
+    scroll-margin-top: 1.5rem;
+  }
+  .ep-head { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; margin-bottom: 0.15rem; }
+  .method {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em;
+    padding: 0.18rem 0.55rem; border-radius: 5px; text-transform: uppercase;
+  }
+  .method.get { background: var(--get-wash); color: var(--get); }
+  .method.post { background: var(--accent-wash); color: var(--accent-ink); }
+  .method.put, .method.patch { background: var(--put-wash); color: var(--put); }
+  .ep-path { font-size: 0.98rem; font-weight: 600; color: var(--text); }
+  .tag {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid var(--border-strong);
+    color: var(--text-muted); margin-left: auto;
+  }
+  .tag.locked { color: var(--delete); border-color: color-mix(in srgb, var(--delete) 40%, var(--border-strong)); }
+  .tag.open { color: var(--get); border-color: color-mix(in srgb, var(--get) 40%, var(--border-strong)); }
+  .ep-summary { color: var(--text-muted); margin: 0.7rem 0 0; font-size: 0.94rem; }
+  .status-line {
+    font-size: 0.72rem; font-weight: 700; color: var(--text-faint); text-transform: uppercase;
+    letter-spacing: 0.04em; margin: 0 0 0.3rem;
+  }
+
+  /* ---------- Flow steps ---------- */
+  .flow { counter-reset: step; list-style: none; padding: 0; margin: 1.2rem 0; }
+  .flow li {
+    counter-increment: step; position: relative; padding: 0 0 1.6rem 2.6rem; margin: 0;
+    border-left: 1px solid var(--border); margin-left: 0.85rem;
+  }
+  .flow li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .flow li::before {
+    content: counter(step); position: absolute; left: -0.9rem; top: 0;
+    width: 1.75rem; height: 1.75rem; border-radius: 50%;
+    background: var(--accent); color: var(--surface); font-size: 0.82rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-family: ui-monospace, monospace;
+  }
+  .flow h4 { margin: 0 0 0.3rem; font-size: 1rem; font-family: -apple-system, sans-serif; font-weight: 700; }
+  .flow p { margin: 0.2rem 0; font-size: 0.92rem; color: var(--text-muted); }
+
+  /* ---------- Concept cards ---------- */
+  .concept-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin: 1.2rem 0; }
+  @media (min-width: 680px) { .concept-grid { grid-template-columns: 1fr 1fr; } }
+  .concept-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.25rem;
+    background: var(--surface-raised);
+  }
+  .concept-card h4 { margin: 0 0 0.4rem; font-size: 0.98rem; font-family: Iowan Old Style, Georgia, serif; }
+  .concept-card p { font-size: 0.87rem; color: var(--text-muted); margin: 0; }
+
+  /* ---------- Error table ---------- */
+  .status-pill {
+    font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.82rem;
+    padding: 0.1rem 0.45rem; border-radius: 5px; display: inline-block;
+  }
+  .status-pill.s2 { background: var(--get-wash); color: var(--get); }
+  .status-pill.s4 { background: var(--put-wash); color: var(--put); }
+  .status-pill.s4d { background: var(--delete-wash); color: var(--delete); }
+
+  hr.rule { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+  footer.doc-footer {
+    max-width: 780px; padding-top: 2rem; border-top: 1px solid var(--border);
+    color: var(--text-faint); font-size: 0.85rem;
+  }
+
+  @media (max-width: 880px) {
+    .sidebar { display: none; }
+    main { padding: 2rem 1.25rem 6rem; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark">fembin</span>
+      <span class="tag">API integration guide</span>
+    </div>
+    <nav class="toc">
+      <span class="group-label">Start here</span>
+      <a href="#overview">Overview</a>
+      <a href="#conventions">Conventions</a>
+      <a href="#auth-flow">Authentication</a>
+      <a href="#concepts">Core concepts</a>
+      <a href="#workflow">Building a quotation</a>
+
+      <span class="group-label">Auth</span>
+      <a href="#ep-login"><span class="m post">POST</span>/auth/login</a>
+      <a href="#ep-me"><span class="m get">GET</span>/auth/me</a>
+      <a href="#ep-create-user"><span class="m post">POST</span>/auth/users</a>
+
+      <span class="group-label">Catalog</span>
+      <a href="#ep-products"><span class="m get">GET</span>/products</a>
+      <a href="#ep-product"><span class="m get">GET</span>/products/:code</a>
+      <a href="#ep-barcode"><span class="m put">PUT</span>/products/:code/barcode</a>
+      <a href="#ep-categories"><span class="m get">GET</span>/categories</a>
+      <a href="#ep-material-centers"><span class="m get">GET</span>/material-centers</a>
+      <a href="#ep-sales-people"><span class="m get">GET</span>/sales-people</a>
+
+      <span class="group-label">Quotations</span>
+      <a href="#ep-create-quote"><span class="m post">POST</span>/quotations</a>
+      <a href="#ep-list-quotes"><span class="m get">GET</span>/quotations</a>
+      <a href="#ep-outbox"><span class="m get">GET</span>/outbox/:id</a>
+
+      <span class="group-label">Sync &amp; admin</span>
+      <a href="#ep-sync-trigger"><span class="m post">POST</span>/sync/products</a>
+      <a href="#ep-sync-status"><span class="m get">GET</span>/sync/status</a>
+      <a href="#ep-woo-push"><span class="m post">POST</span>/sync/woocommerce/push</a>
+      <a href="#ep-admin-users"><span class="m get">GET</span>/admin/users</a>
+      <a href="#ep-admin-quotes"><span class="m get">GET</span>/admin/quotations</a>
+      <a href="#ep-admin-sp"><span class="m get">GET</span>/admin/sales-people</a>
+
+      <span class="group-label">Reference</span>
+      <a href="#errors">Errors</a>
+      <a href="#reference-ui">Working examples</a>
+      <a href="#appendix">Appendix</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="doc-header">
+      <div class="eyebrow">Internal &middot; v1</div>
+      <h1>Frontend integration guide</h1>
+      <p class="lede">
+        Everything a frontend needs to build against the fembin API: how auth works, what
+        each endpoint expects and returns, and — more importantly — the rules that aren't
+        visible in a schema, like why a quotation needs a sales person from a specific list,
+        or why "success" doesn't mean "posted to BUSY."
+      </p>
+      <div class="meta-row">
+        <span><strong>Base URL</strong> &nbsp;<code>http://&lt;host&gt;/api/v1</code></span>
+        <span><strong>Auth</strong> &nbsp;Bearer JWT</span>
+        <span><strong>Format</strong> &nbsp;JSON</span>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="overview">
+      <h2>Overview</h2>
+      <p class="section-intro">
+        fembin sits between BUSY — the desktop accounting software a physical repair
+        business runs on — and everything else: a website, an internal sales app, and
+        (later) a loyalty scheme. It mirrors BUSY's data into its own MySQL database for
+        fast reads, and queues every write back to BUSY so a slow or flaky BUSY connection
+        never blocks a request.
+      </p>
+      <p>
+        The one workflow fully built today is <strong>Sale Quotations</strong> — a rep
+        picks products, a sales person, and a customer, and the quotation is queued to be
+        posted into BUSY. Everything else (products, branches, sales people) is read-only
+        reference data mirrored <em>from</em> BUSY for the frontend to build pickers from.
+      </p>
+      <div class="callout note">
+        <span class="label">Two actors</span>
+        Most endpoints are for a logged-in <strong>rep</strong> — scoped to their own
+        branch automatically. A handful are <strong>superadmin-only</strong> — cross-branch
+        visibility and anything that writes to a live external system (creating users,
+        setting a barcode, pushing to the website). The docs below mark each endpoint.
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="conventions">
+      <h2>Conventions</h2>
+      <h3 class="sub">Requests</h3>
+      <p>Every endpoint is under <code>/api/v1</code>. Authenticated ones expect:</p>
+      <pre class="code-block"><code><span class="k">Authorization:</span> Bearer &lt;token&gt;
+<span class="k">Content-Type:</span> application/json</code></pre>
+
+      <h3 class="sub">Errors</h3>
+      <p>
+        Validation errors (missing/malformed fields) return FastAPI's standard shape with
+        <span class="status-pill s4">422</span>:
+      </p>
+      <pre class="code-block"><code><span class="p">{</span>
+  <span class="k">"detail"</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="k">"type"</span><span class="p">:</span> <span class="s">"missing"</span><span class="p">,</span>
+      <span class="k">"loc"</span><span class="p">:</span> <span class="p">[</span><span class="s">"body"</span><span class="p">,</span> <span class="s">"sales_person_id"</span><span class="p">],</span>
+      <span class="k">"msg"</span><span class="p">:</span> <span class="s">"Field required"</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">}</span></code></pre>
+      <p>
+        Business-rule errors (wrong credentials, a code that doesn't match anything, a
+        duplicate) return a flat shape instead:
+      </p>
+      <pre class="code-block"><code><span class="p">{</span> <span class="k">"detail"</span><span class="p">:</span> <span class="s">"sales_person_id does not match a known, active sales person"</span> <span class="p">}</span></code></pre>
+      <p>Always read <code>detail</code> — it's either an array (422) or a string (everything else). See <a href="#errors">Errors</a> for the full status-code table.</p>
+
+      <h3 class="sub">Money and dates</h3>
+      <ul>
+        <li>Prices/amounts are decimal <strong>strings</strong> on the wire (e.g. <code>"1000.00"</code>), not JSON numbers — send and parse them as strings to avoid float rounding.</li>
+        <li>Quotation dates are <code>DD-MM-YYYY</code> — this is BUSY's own format, not ISO 8601.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="auth-flow">
+      <h2>Authentication</h2>
+      <p class="section-intro">
+        Username/password login returns a JWT. Every other endpoint (except the public
+        catalog reads) expects it as a Bearer token. There's no refresh endpoint yet —
+        tokens last 8 hours (one shift); re-login when one expires.
+      </p>
+
+      <div class="callout rule">
+        <span class="label">There's no self-service signup</span>
+        <code>POST /auth/users</code> requires an existing superadmin's token. The very
+        first superadmin can't be created over HTTP at all — it's bootstrapped once from a
+        server-side script (<code>scripts/create_superadmin.py</code>). If you need a test
+        account, ask for one to be created rather than expecting a signup form to work.
+      </div>
+
+      <h4>Login → store token → attach to every request</h4>
+      <pre class="code-block"><code><span class="cm">// 1. Log in</span>
+<span class="k">const</span> res = <span class="k">await</span> fetch(<span class="s">"/api/v1/auth/login"</span>, {
+  method: <span class="s">"POST"</span>,
+  headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span> },
+  body: JSON.stringify({ username, password }),
+});
+<span class="k">const</span> { access_token } = <span class="k">await</span> res.json();
+
+<span class="cm">// 2. Attach it to every subsequent request</span>
+<span class="k">await</span> fetch(<span class="s">"/api/v1/quotations"</span>, {
+  headers: { <span class="s">"Authorization"</span>: <span class="s">`Bearer ${</span>access_token<span class="s">}`</span> },
+});</code></pre>
+
+      <p>
+        Once you have a token, <code>GET /auth/me</code> tells you who you're acting as —
+        critically, <strong>which branch</strong> (<code>material_center_code</code>) every
+        action from this session will be scoped to. Fetch it right after login and use it
+        to label the UI ("You're working from: Main Store").
+      </p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="concepts">
+      <h2>Core concepts</h2>
+      <p class="section-intro">
+        The schemas are simple; the reasons behind them aren't obvious from the wire shape
+        alone. Read this before wiring up the quotation form — it explains why several
+        fields are required, or missing, on purpose.
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Material Center = branch</h4>
+          <p>
+            Every user belongs to exactly one branch. You never send a branch on a
+            quotation — it's always taken from the logged-in user, server-side. A rep at
+            "Main Store" cannot post to, or see, another branch's quotations, and the API
+            doesn't expose a way to override that from the client.
+          </p>
+        </div>
+        <div class="concept-card">
+          <h4>Sales person ≠ logged-in user</h4>
+          <p>
+            Several people can share one till/login. <code>sales_person_id</code> is a
+            <em>required</em>, separate field — who actually made the sale. It's pulled
+            live from BUSY (its "Engineer" list, in this business), not something the app
+            lets you create. Always populate the picker from <code>GET /sales-people</code>.
+          </p>
+        </div>
+        <div class="concept-card">
+          <h4>Posting is asynchronous</h4>
+          <p>
+            <code>POST /quotations</code> returns <code>202</code> the instant it's queued
+            — before BUSY has seen it. <code>status: "queued"</code> does not mean posted.
+            Poll <code>GET /outbox/:id</code> (or re-fetch the list) until it flips to
+            <code>done</code> or <code>failed</code>. See <a href="#workflow">the full flow</a>.
+          </p>
+        </div>
+        <div class="concept-card">
+          <h4>Barcode is local, not from BUSY</h4>
+          <p>
+            BUSY has no barcode field for this company. <code>Product.barcode</code> is
+            assigned inside this app by a superadmin and never overwritten by a catalog
+            sync. If it's <code>null</code>, that product just hasn't been assigned one —
+            not a sync failure.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="workflow">
+      <h2>Building a quotation, end to end</h2>
+      <p class="section-intro">
+        This is the one workflow with real business logic behind it. Everything else in
+        this API exists to feed this form. Walk through it once and the rest of the
+        reference below will make sense in context.
+      </p>
+
+      <ol class="flow">
+        <li>
+          <h4>Log in, read <code>/auth/me</code></h4>
+          <p>Get the token and the caller's <code>material_center_name</code> — show it in the UI so the rep knows which branch they're posting for.</p>
+        </li>
+        <li>
+          <h4>Load pickers in parallel</h4>
+          <p><code>GET /products?active=true</code> and <code>GET /sales-people</code>. Both are unauthenticated-safe reads, but send the token anyway for consistency.</p>
+        </li>
+        <li>
+          <h4>Let the rep build the item list</h4>
+          <p>Pick a product (or match a scanned barcode against the already-loaded product list's <code>barcode</code> field — this is a client-side lookup, there's no barcode-search endpoint). Compute <code>amount = qty × price</code> yourself; BUSY expects a pre-calculated amount, it will not compute it for you.</p>
+        </li>
+        <li>
+          <h4>Require a sales person</h4>
+          <p>Don't let the form submit without one selected — the API will reject it with <code>422</code>, but catching it client-side gives a much better error than a round trip.</p>
+        </li>
+        <li>
+          <h4>Generate an idempotency key once, client-side</h4>
+          <p>A UUID is fine. If the request times out and you retry with the <em>same</em> key, you get back the original job instead of creating a duplicate quotation. Generate a new key only when the rep starts a genuinely new quotation.</p>
+        </li>
+        <li>
+          <h4><code>POST /quotations</code> → <code>202</code></h4>
+          <p>The response is an outbox job with <code>status: "queued"</code>. This is not confirmation it reached BUSY — just that it's safely recorded and will be attempted.</p>
+        </li>
+        <li>
+          <h4>Poll until it resolves</h4>
+          <p>Re-fetch <code>GET /outbox/{id}</code> every few seconds (the reference console polls every 4s). Stop when <code>status</code> is <code>done</code> (show <code>result.vch_no</code> — the real BUSY voucher number) or <code>failed</code> (show <code>last_error</code>).</p>
+        </li>
+      </ol>
+
+      <div class="callout warn">
+        <span class="label">A queued job can sit there indefinitely</span>
+        The background worker that actually talks to BUSY is opt-in per environment.
+        If nothing is moving past <code>queued</code>, that's an operational/config
+        question, not a bug in your polling — surface a "still processing" state rather
+        than assuming failure after a fixed timeout.
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="resources">
+      <h2>Resources</h2>
+      <p class="section-intro">Every endpoint currently exposed, grouped the way you'll use them.</p>
+
+      <h3 class="sub" id="res-auth">Auth</h3>
+
+      <article class="endpoint" id="ep-login">
+        <div class="ep-head">
+          <span class="method post">POST</span>
+          <span class="ep-path">/auth/login</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">Exchange a username/password for a token.</p>
+        <div class="code-label">Request body</div>
+        <div class="table-wrap"><table class="fields">
+          <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f-name">username</td><td class="f-type">string</td><td class="f-desc">required</td></tr>
+          <tr><td class="f-name">password</td><td class="f-type">string</td><td class="f-desc">required</td></tr>
+        </table></div>
+        <div class="status-line">200 OK</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"access_token"</span><span class="p">:</span> <span class="s">"eyJhbGciOi..."</span><span class="p">,</span> <span class="k">"token_type"</span><span class="p">:</span> <span class="s">"bearer"</span> <span class="p">}</span></code></pre>
+        <p style="font-size:0.87rem;color:var(--text-muted);">Wrong credentials → <span class="status-pill s4">401</span>.</p>
+      </article>
+
+      <article class="endpoint" id="ep-me">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/auth/me</span>
+          <span class="tag">Auth required</span>
+        </div>
+        <p class="ep-summary">Who the current token belongs to, and which branch it's scoped to.</p>
+        <div class="status-line">200 OK</div>
+        <pre class="code-block"><code><span class="p">{</span>
+  <span class="k">"id"</span><span class="p">:</span> <span class="n">135</span><span class="p">,</span>
+  <span class="k">"username"</span><span class="p">:</span> <span class="s">"taiwo.rep"</span><span class="p">,</span>
+  <span class="k">"full_name"</span><span class="p">:</span> <span class="s">"Taiwo Rep"</span><span class="p">,</span>
+  <span class="k">"material_center_code"</span><span class="p">:</span> <span class="n">201</span><span class="p">,</span>
+  <span class="k">"material_center_name"</span><span class="p">:</span> <span class="s">"Main Store"</span><span class="p">,</span>
+  <span class="k">"is_superadmin"</span><span class="p">:</span> <span class="k">false</span>
+<span class="p">}</span></code></pre>
+      </article>
+
+      <article class="endpoint" id="ep-create-user">
+        <div class="ep-head">
+          <span class="method post">POST</span>
+          <span class="ep-path">/auth/users</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Create a new rep/cashier login, tied to one branch.</p>
+        <div class="code-label">Request body</div>
+        <div class="table-wrap"><table class="fields">
+          <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f-name">username</td><td class="f-type">string</td><td class="f-desc">required, unique</td></tr>
+          <tr><td class="f-name">password</td><td class="f-type">string</td><td class="f-desc">required</td></tr>
+          <tr><td class="f-name">full_name</td><td class="f-type">string</td><td class="f-desc">required</td></tr>
+          <tr><td class="f-name">material_center_code</td><td class="f-type">int</td><td class="f-desc">required — must be a real, active branch</td></tr>
+        </table></div>
+        <div class="status-line">201 Created</div>
+        <p style="font-size:0.87rem;color:var(--text-muted);">Duplicate username → <span class="status-pill s4d">409</span>. Unknown/inactive branch → <span class="status-pill s4">422</span>.</p>
+      </article>
+
+      <h3 class="sub" id="res-products">Catalog — products, categories, branches</h3>
+      <p>These mirror BUSY's own data. Read-only except the barcode field, which this app owns.</p>
+
+      <article class="endpoint" id="ep-products">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/products</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">The product catalog, for building the item picker.</p>
+        <div class="code-label">Query params</div>
+        <div class="table-wrap"><table class="fields">
+          <tr><th>Param</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f-name">search</td><td class="f-type">string</td><td class="f-desc">optional, matches name (case-insensitive)</td></tr>
+          <tr><td class="f-name">category</td><td class="f-type">string</td><td class="f-desc">optional, exact <code>item_group</code> match</td></tr>
+          <tr><td class="f-name">active</td><td class="f-type">bool</td><td class="f-desc">optional — omit to get both active and inactive</td></tr>
+        </table></div>
+        <div class="status-line">200 OK — array of Product</div>
+        <pre class="code-block"><code><span class="p">[{</span>
+  <span class="k">"busy_code"</span><span class="p">:</span> <span class="n">1613</span><span class="p">,</span>
+  <span class="k">"name"</span><span class="p">:</span> <span class="s">"Cable-infinix Micro"</span><span class="p">,</span>
+  <span class="k">"price"</span><span class="p">:</span> <span class="s">"1000.00"</span><span class="p">,</span>
+  <span class="k">"unit"</span><span class="p">:</span> <span class="s">"Pcs."</span><span class="p">,</span>
+  <span class="k">"item_group"</span><span class="p">:</span> <span class="s">"General"</span><span class="p">,</span>
+  <span class="k">"tracks_stock"</span><span class="p">:</span> <span class="k">true</span><span class="p">,</span>
+  <span class="k">"is_active"</span><span class="p">:</span> <span class="k">true</span><span class="p">,</span>
+  <span class="k">"woo_product_id"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"woo_synced_price"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"barcode"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"updated_at"</span><span class="p">:</span> <span class="s">"2026-08-20T12:04:01"</span>
+<span class="p">}]</span></code></pre>
+        <div class="callout note">
+          <span class="label">No stock field, on purpose</span>
+          BUSY doesn't expose stock on the Item master for this company, and a derived
+          number exists internally but is flagged unverified — it is deliberately not on
+          this response. Don't build a "N in stock" UI against this endpoint yet.
+        </div>
+      </article>
+
+      <article class="endpoint" id="ep-product">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/products/{code}</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">Single product by its BUSY code. <span class="status-pill s4">404</span> if it doesn't exist.</p>
+      </article>
+
+      <article class="endpoint" id="ep-barcode">
+        <div class="ep-head">
+          <span class="method put">PUT</span>
+          <span class="ep-path">/products/{code}/barcode</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Assign or change a product's barcode.</p>
+        <div class="code-label">Request body</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"barcode"</span><span class="p">:</span> <span class="s">"6009123456789"</span> <span class="p">}</span></code></pre>
+        <div class="status-line">200 OK — the updated Product</div>
+        <p style="font-size:0.87rem;color:var(--text-muted);">Unknown product → <span class="status-pill s4">404</span>. Barcode already used elsewhere → <span class="status-pill s4d">409</span>.</p>
+      </article>
+
+      <article class="endpoint" id="ep-categories">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/categories</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">Distinct product groups. <code>woo_category_id</code> is set once a category has been pushed to WooCommerce.</p>
+      </article>
+
+      <article class="endpoint" id="ep-material-centers">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/material-centers</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">Every branch. Useful for an admin screen; a normal rep never needs to pick one — theirs is implicit.</p>
+      </article>
+
+      <article class="endpoint" id="ep-sales-people">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/sales-people</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">Active sales people, straight from BUSY. This is the picker source for the quotation form's <code>sales_person_id</code> field.</p>
+        <div class="status-line">200 OK</div>
+        <pre class="code-block"><code><span class="p">[{</span>
+  <span class="k">"busy_code"</span><span class="p">:</span> <span class="n">2775</span><span class="p">,</span>
+  <span class="k">"name"</span><span class="p">:</span> <span class="s">"Aroge Prosper"</span><span class="p">,</span>
+  <span class="k">"alias"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"is_active"</span><span class="p">:</span> <span class="k">true</span><span class="p">,</span>
+  <span class="k">"updated_at"</span><span class="p">:</span> <span class="s">"2026-08-20T12:23:22"</span>
+<span class="p">}]</span></code></pre>
+        <div class="callout warn">
+          <span class="label">This list can legitimately be empty</span>
+          It reflects whatever is entered in BUSY at that moment. An empty array means "no
+          one's been added in BUSY yet" — not a broken request. Render a clear empty state
+          ("no sales people yet — add one in BUSY") rather than a spinner or a silent
+          disabled form.
+        </div>
+      </article>
+
+      <h3 class="sub" id="res-quotations">Quotations — the core write path</h3>
+
+      <article class="endpoint" id="ep-create-quote">
+        <div class="ep-head">
+          <span class="method post">POST</span>
+          <span class="ep-path">/quotations</span>
+          <span class="tag">Auth required</span>
+        </div>
+        <p class="ep-summary">Queue a Sale Quotation. Returns immediately — see <a href="#workflow">the workflow</a> for what happens after.</p>
+        <div class="code-label">Request body</div>
+        <div class="table-wrap"><table class="fields">
+          <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f-name">idempotency_key</td><td class="f-type">string</td><td class="f-desc">required — your own UUID, see workflow step 5</td></tr>
+          <tr><td class="f-name">vch_series_name</td><td class="f-type">string</td><td class="f-desc">optional, defaults to <code>"Main"</code></td></tr>
+          <tr><td class="f-name">vch_no_prefix</td><td class="f-type">string</td><td class="f-desc">required — the voucher-number prefix for that series (e.g. <code>"RCC"</code>); ask a backend engineer for your company's real value, it can't be derived automatically</td></tr>
+          <tr><td class="f-name">date</td><td class="f-type">string</td><td class="f-desc">required, <code>DD-MM-YYYY</code></td></tr>
+          <tr><td class="f-name">sale_type_name</td><td class="f-type">string</td><td class="f-desc">required — a real BUSY sale type, e.g. <code>"Repair"</code></td></tr>
+          <tr><td class="f-name">customer_name</td><td class="f-type">string</td><td class="f-desc">required, free text</td></tr>
+          <tr><td class="f-name">sales_person_id</td><td class="f-type">int</td><td class="f-desc">required — <code>busy_code</code> from <code>GET /sales-people</code></td></tr>
+          <tr><td class="f-name">items</td><td class="f-type">array</td><td class="f-desc">required, at least one — see below</td></tr>
+        </table></div>
+        <div class="code-label">Each item</div>
+        <div class="table-wrap"><table class="fields">
+          <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f-name">item_name</td><td class="f-type">string</td><td class="f-desc">use the product's real <code>name</code>, not a label you invent</td></tr>
+          <tr><td class="f-name">unit_name</td><td class="f-type">string</td><td class="f-desc">from the product's <code>unit</code></td></tr>
+          <tr><td class="f-name">qty</td><td class="f-type">string</td><td class="f-desc">decimal as a string, e.g. <code>"1"</code></td></tr>
+          <tr><td class="f-name">price</td><td class="f-type">string</td><td class="f-desc">decimal as a string</td></tr>
+          <tr><td class="f-name">amount</td><td class="f-type">string</td><td class="f-desc">you compute this: <code>qty × price</code></td></tr>
+        </table></div>
+
+        <div class="code-cols two">
+          <div>
+            <div class="code-label">Example request</div>
+            <pre class="code-block"><code><span class="p">{</span>
+  <span class="k">"idempotency_key"</span><span class="p">:</span> <span class="s">"b3b3...-uuid"</span><span class="p">,</span>
+  <span class="k">"vch_no_prefix"</span><span class="p">:</span> <span class="s">"RCC"</span><span class="p">,</span>
+  <span class="k">"date"</span><span class="p">:</span> <span class="s">"20-08-2026"</span><span class="p">,</span>
+  <span class="k">"sale_type_name"</span><span class="p">:</span> <span class="s">"Repair"</span><span class="p">,</span>
+  <span class="k">"customer_name"</span><span class="p">:</span> <span class="s">"Amit Gupta"</span><span class="p">,</span>
+  <span class="k">"sales_person_id"</span><span class="p">:</span> <span class="n">2775</span><span class="p">,</span>
+  <span class="k">"items"</span><span class="p">:</span> <span class="p">[{</span>
+    <span class="k">"item_name"</span><span class="p">:</span> <span class="s">"Cable-infinix Micro"</span><span class="p">,</span>
+    <span class="k">"unit_name"</span><span class="p">:</span> <span class="s">"Pcs."</span><span class="p">,</span>
+    <span class="k">"qty"</span><span class="p">:</span> <span class="s">"2"</span><span class="p">,</span>
+    <span class="k">"price"</span><span class="p">:</span> <span class="s">"1000.00"</span><span class="p">,</span>
+    <span class="k">"amount"</span><span class="p">:</span> <span class="s">"2000.00"</span>
+  <span class="p">}]</span>
+<span class="p">}</span></code></pre>
+          </div>
+          <div>
+            <div class="status-line">202 Accepted</div>
+            <pre class="code-block"><code><span class="p">{</span>
+  <span class="k">"id"</span><span class="p">:</span> <span class="n">260</span><span class="p">,</span>
+  <span class="k">"job_type"</span><span class="p">:</span> <span class="s">"add_sale_quotation"</span><span class="p">,</span>
+  <span class="k">"status"</span><span class="p">:</span> <span class="s">"queued"</span><span class="p">,</span>
+  <span class="k">"attempts"</span><span class="p">:</span> <span class="n">0</span><span class="p">,</span>
+  <span class="k">"payload"</span><span class="p">:</span> <span class="p">{ </span><span class="cm">/* your inputs, plus who/where */</span> <span class="p">},</span>
+  <span class="k">"result"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"last_error"</span><span class="p">:</span> <span class="k">null</span><span class="p">,</span>
+  <span class="k">"created_at"</span><span class="p">:</span> <span class="s">"2026-08-20T09:18:31"</span><span class="p">,</span>
+  <span class="k">"updated_at"</span><span class="p">:</span> <span class="s">"2026-08-20T09:18:31"</span>
+<span class="p">}</span></code></pre>
+          </div>
+        </div>
+
+        <p style="font-size:0.87rem;color:var(--text-muted);">
+          Same <code>idempotency_key</code> sent twice → the <em>original</em> job comes
+          back unchanged, <code>202</code> either way. Unknown/inactive
+          <code>sales_person_id</code> → <span class="status-pill s4">422</span>.
+        </p>
+      </article>
+
+      <article class="endpoint" id="ep-list-quotes">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/quotations</span>
+          <span class="tag">Auth required</span>
+        </div>
+        <p class="ep-summary">
+          Every quotation from the caller's own branch, newest first — same shape as the
+          create response. This is what a status/history screen polls.
+        </p>
+        <div class="status-line">200 OK — once a job settles</div>
+        <pre class="code-block"><code><span class="p">{</span>
+  <span class="k">"status"</span><span class="p">:</span> <span class="s">"done"</span><span class="p">,</span>
+  <span class="k">"result"</span><span class="p">:</span> <span class="p">{ </span><span class="k">"vch_code"</span><span class="p">:</span> <span class="s">"9928"</span><span class="p">,</span> <span class="k">"vch_no"</span><span class="p">:</span> <span class="s">"RCC-5"</span> <span class="p">}</span>
+<span class="p">}</span></code></pre>
+        <p style="font-size:0.87rem;color:var(--text-muted);">
+          <code>result.vch_no</code> is the real number BUSY assigned — that's what should
+          go on a printed slip, never anything computed client-side.
+        </p>
+      </article>
+
+      <article class="endpoint" id="ep-outbox">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/outbox/{id}</span>
+          <span class="tag">Auth required</span>
+        </div>
+        <p class="ep-summary">Look up one job by id — same shape, useful when you only kept the id from the create response rather than re-listing everything.</p>
+        <p style="font-size:0.87rem;color:var(--text-muted);">Unknown id → <span class="status-pill s4">404</span>.</p>
+      </article>
+
+      <h3 class="sub" id="res-sync">Sync &amp; WooCommerce</h3>
+      <p>Mostly superadmin/ops tooling — a normal rep-facing UI won't call these.</p>
+
+      <article class="endpoint" id="ep-sync-trigger">
+        <div class="ep-head">
+          <span class="method post">POST</span>
+          <span class="ep-path">/sync/products</span>
+          <span class="tag">Auth required</span>
+        </div>
+        <p class="ep-summary">
+          Kick off a fresh pull from BUSY (material centers, products, sales people) and a
+          WooCommerce push. Runs in the background — the response doesn't wait for it.
+        </p>
+        <div class="code-label">Request body</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"full"</span><span class="p">:</span> <span class="k">false</span> <span class="p">}</span> <span class="cm">// true = ignore checkpoints, re-pull everything</span></code></pre>
+        <div class="status-line">202 Accepted</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"status"</span><span class="p">:</span> <span class="s">"scheduled"</span> <span class="p">}</span></code></pre>
+      </article>
+
+      <article class="endpoint" id="ep-sync-status">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/sync/status</span>
+          <span class="tag open">No auth</span>
+        </div>
+        <p class="ep-summary">When each entity last synced, and the last WooCommerce push's tally — good for an ops/health screen.</p>
+      </article>
+
+      <article class="endpoint" id="ep-woo-push">
+        <div class="ep-head">
+          <span class="method post">POST</span>
+          <span class="ep-path">/sync/woocommerce/push</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Push specifically chosen products to the live website right now, instead of waiting on the periodic sync.</p>
+        <div class="code-label">Request body</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"busy_codes"</span><span class="p">:</span> <span class="p">[</span><span class="n">1613</span><span class="p">,</span> <span class="n">1614</span><span class="p">]</span> <span class="p">}</span></code></pre>
+        <div class="status-line">200 OK</div>
+        <pre class="code-block"><code><span class="p">{</span> <span class="k">"results"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span> <span class="k">"busy_code"</span><span class="p">:</span> <span class="n">1613</span><span class="p">,</span> <span class="k">"name"</span><span class="p">:</span> <span class="s">"Cable-infinix Micro"</span><span class="p">,</span> <span class="k">"action"</span><span class="p">:</span> <span class="s">"created"</span> <span class="p">},</span>
+  <span class="p">{</span> <span class="k">"busy_code"</span><span class="p">:</span> <span class="n">1614</span><span class="p">,</span> <span class="k">"name"</span><span class="p">:</span> <span class="s">"Cable-infinix Typ C"</span><span class="p">,</span> <span class="k">"action"</span><span class="p">:</span> <span class="s">"skipped"</span> <span class="p">}</span>
+<span class="p">] }</span></code></pre>
+        <p style="font-size:0.87rem;color:var(--text-muted);"><code>action</code> is one of <code>created</code>, <code>updated</code>, <code>skipped</code> (already in sync), <code>failed</code>, <code>not_found</code>. WooCommerce not configured yet → <span class="status-pill s4d">409</span>.</p>
+      </article>
+
+      <h3 class="sub" id="res-admin">Admin — cross-branch views</h3>
+      <p>Identical shapes to their rep-facing equivalents, just without the branch filter. All superadmin-only.</p>
+
+      <article class="endpoint" id="ep-admin-users">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/admin/users</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Every user, every branch.</p>
+      </article>
+
+      <article class="endpoint" id="ep-admin-quotes">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/admin/quotations</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Every quotation, every branch — same shape as <code>GET /quotations</code>.</p>
+      </article>
+
+      <article class="endpoint" id="ep-admin-sp">
+        <div class="ep-head">
+          <span class="method get">GET</span>
+          <span class="ep-path">/admin/sales-people</span>
+          <span class="tag locked">Superadmin</span>
+        </div>
+        <p class="ep-summary">Every synced sales person, <em>including inactive ones</em> — useful for "who got blocked in BUSY" visibility that the public picker deliberately hides.</p>
+      </article>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="errors">
+      <h2>Errors, at a glance</h2>
+      <div class="table-wrap"><table class="fields">
+        <tr><th>Status</th><th>Meaning here</th><th>What to show</th></tr>
+        <tr><td><span class="status-pill s2">200/202</span></td><td class="f-desc">Success (202 = accepted, not necessarily finished — see async note above)</td><td class="f-desc">Proceed normally</td></tr>
+        <tr><td><span class="status-pill s4">401</span></td><td class="f-desc">Missing, invalid, or expired token</td><td class="f-desc">Send back to login</td></tr>
+        <tr><td><span class="status-pill s4">403</span></td><td class="f-desc">Valid token, but not a superadmin</td><td class="f-desc">Hide the action, don't just retry</td></tr>
+        <tr><td><span class="status-pill s4">404</span></td><td class="f-desc">That id/code doesn't exist</td><td class="f-desc">"Not found," not a generic error</td></tr>
+        <tr><td><span class="status-pill s4d">409</span></td><td class="f-desc">Conflicts with existing state (duplicate username, barcode already taken, WooCommerce unconfigured)</td><td class="f-desc">Show the specific <code>detail</code> string</td></tr>
+        <tr><td><span class="status-pill s4">422</span></td><td class="f-desc">Body failed validation, or a referenced id/code is unknown/inactive</td><td class="f-desc">Array shape — map each <code>loc</code> to a field</td></tr>
+      </table></div>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="reference-ui">
+      <h2>Working examples</h2>
+      <p class="section-intro">
+        Two plain HTML/JS pages already implement everything above, end to end, against
+        this same API — reading the source is often faster than re-deriving the flow from
+        this document.
+      </p>
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4><code>/console</code></h4>
+          <p>The rep-facing flow: login, product + barcode picker, sales-person picker, quotation submit, live status polling.</p>
+        </div>
+        <div class="concept-card">
+          <h4><code>/admin</code></h4>
+          <p>The superadmin flow: cross-branch views, barcode assignment, the WooCommerce push checklist.</p>
+        </div>
+      </div>
+      <p>Both are served by the backend itself (<code>app/static/console.html</code>, <code>app/static/admin.html</code>) — no build step, no framework, just <code>fetch()</code> against the exact endpoints documented above.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <section class="doc-section" id="appendix">
+      <h2>Appendix</h2>
+
+      <h4>Outbox job status values</h4>
+      <div class="table-wrap"><table class="fields">
+        <tr><th>Value</th><th>Meaning</th></tr>
+        <tr><td class="f-name">queued</td><td class="f-desc">Recorded locally, not yet attempted</td></tr>
+        <tr><td class="f-name">running</td><td class="f-desc">The background worker has picked it up right now</td></tr>
+        <tr><td class="f-name">done</td><td class="f-desc">Posted to BUSY — <code>result</code> has <code>vch_no</code>/<code>vch_code</code></td></tr>
+        <tr><td class="f-name">failed</td><td class="f-desc">BUSY rejected it or a connection error occurred — <code>last_error</code> has why</td></tr>
+      </table></div>
+
+      <h4>WooCommerce push <code>action</code> values</h4>
+      <div class="table-wrap"><table class="fields">
+        <tr><th>Value</th><th>Meaning</th></tr>
+        <tr><td class="f-name">created</td><td class="f-desc">New WooCommerce product created</td></tr>
+        <tr><td class="f-name">updated</td><td class="f-desc">Existing product's price changed</td></tr>
+        <tr><td class="f-name">skipped</td><td class="f-desc">Already in sync, nothing to do</td></tr>
+        <tr><td class="f-name">failed</td><td class="f-desc">WooCommerce rejected the request</td></tr>
+        <tr><td class="f-name">not_found</td><td class="f-desc">That <code>busy_code</code> isn't a real, active product</td></tr>
+      </table></div>
+
+      <h4>Token lifetime</h4>
+      <p>8 hours from issue. There's no refresh flow — a session that's been idle across a shift boundary should just prompt for login again rather than trying to silently recover.</p>
+    </section>
+
+    <footer class="doc-footer">
+      fembin API — internal integration guide. Reflects the API as implemented; if
+      something here and the actual response ever disagree, trust the response and flag
+      the mismatch to backend.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

@@ -108,6 +108,13 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/", include_in_schema=False)
+    async def docs_home() -> FileResponse:
+        # The frontend integration guide — what a visitor hitting the bare domain root
+        # should see, per explicit request. Static reference doc, not the interactive
+        # OpenAPI schema (that's still at /docs, FastAPI's default).
+        return FileResponse(Path(__file__).parent / "static" / "docs.html")
+
     @app.get("/console", include_in_schema=False)
     async def console() -> FileResponse:
         # Dev-only manual test page (login + Sale Quotation create/list against this same
