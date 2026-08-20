@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Category, Product
 from app.domain.catalog.woo_sync import (
     get_woo_sync_state,
+    push_products_by_code,
     push_products_to_woocommerce,
     set_seeded,
 )
@@ -113,3 +114,55 @@ async def test_price_change_updates_only_the_changed_product(
     assert Decimal(updated_woo_product["regular_price"]) == Decimal("1500")
     unchanged_woo_product = next(p for p in woo_server.products if p["sku"] == "102")
     assert Decimal(unchanged_woo_product["regular_price"]) == Decimal("1200")
+
+
+async def test_push_products_by_code_bypasses_seed_mode(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    """Unlike push_products_to_woocommerce, an explicit hand-picked push must create the
+    product even while seed mode is still on — picking it IS the opt-in."""
+    _add_product(db_session, code=101, group="General", price="1000")
+    _add_product(db_session, code=102, group="General", price="1200")
+    assert get_woo_sync_state(db_session).seeded is False
+
+    results = await push_products_by_code(db_session, woo_client, [101])
+
+    assert len(results) == 1
+    assert results[0].action == "created"
+    assert len(woo_server.products) == 1
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    assert product_101.woo_product_id is not None
+    # The other product was never mentioned — still untouched, still in seed mode.
+    product_102 = db_session.get(Product, 102)
+    assert product_102 is not None
+    assert product_102.woo_product_id is None
+
+
+async def test_push_products_by_code_updates_price_and_skips_unchanged(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    _add_product(db_session, code=101, group="General", price="1000")
+    await push_products_by_code(db_session, woo_client, [101])
+
+    unchanged = await push_products_by_code(db_session, woo_client, [101])
+    assert unchanged[0].action == "skipped"
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.price = Decimal("1500")
+    db_session.commit()
+
+    updated = await push_products_by_code(db_session, woo_client, [101])
+    assert updated[0].action == "updated"
+    woo_product = next(p for p in woo_server.products if p["sku"] == "101")
+    assert Decimal(woo_product["regular_price"]) == Decimal("1500")
+
+
+async def test_push_products_by_code_reports_unknown_product(
+    db_session: Session, woo_client: WooCommerceClient
+) -> None:
+    results = await push_products_by_code(db_session, woo_client, [999999])
+    assert len(results) == 1
+    assert results[0].busy_code == 999999
+    assert results[0].action == "not_found"

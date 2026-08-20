@@ -94,9 +94,10 @@ same-origin so no CORS is needed) for manually testing login, picking a sales pe
 scanning/picking products, and creating/watching Sale Quotations. Not a production UI.
 
 `/admin` (`app/static/admin.html`) — the same idea, for a superadmin: every user, every
-quotation regardless of branch, every synced sales person (including inactive ones), and
-barcode assignment. Backed by `GET /api/v1/admin/users`, `/admin/quotations`,
-`/admin/sales-people`.
+quotation regardless of branch, every synced sales person (including inactive ones),
+barcode assignment, and a product checklist to push chosen products to WooCommerce right
+now (`POST /api/v1/sync/woocommerce/push`). Backed by `GET /api/v1/admin/users`,
+`/admin/quotations`, `/admin/sales-people`.
 
 Every HTTP request is access-logged (`app.access` logger: method, path, status, duration).
 Every catalog sync / outbox drain is logged per step with timing. Two ops scripts log a
@@ -117,3 +118,14 @@ BUSY connection): `uv run python -m tests.fixtures.mock_busy` — listens on `12
 Sprints 0-2 complete (Foundations, BUSY Read Layer + Incremental Sync, Website/WooCommerce
 Sync) — see the respective sprint docs in `docs/sprints/` for each Definition of Done. Next:
 Sprint 3, Orders & Checkout Queue.
+
+**Website product/price push — code complete, blocked only on a real WooCommerce site.**
+Everything is built and tested against a mock WooCommerce server: automatic price-change
+push, new-product creation (behind the seed-mode safety net), and — added 2026-08-20 — a
+manual picker (`/admin`'s Products section, or `POST /api/v1/sync/woocommerce/push`) to
+push specifically chosen products right now, bypassing seed mode since hand-picking a
+product *is* the explicit opt-in. Stock is not part of this — see CLAUDE.md §8's stock
+section, a separate unsolved problem. **The only thing left is the WooCommerce store
+itself**: `WOO_SITE_URL`/`WOO_CONSUMER_KEY`/`WOO_CONSUMER_SECRET` in `.env` need a real
+site with a dedicated REST API key (WooCommerce → Settings → Advanced → REST API). Once
+that exists, everything above works against it with no further code changes.

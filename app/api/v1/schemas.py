@@ -18,6 +18,7 @@ class ProductOut(BaseModel):
     tracks_stock: bool
     is_active: bool
     woo_product_id: int | None
+    woo_synced_price: Decimal | None
     barcode: str | None
     updated_at: datetime
 
@@ -73,3 +74,18 @@ class WooSyncStatusOut(BaseModel):
 class SyncStatusResponse(BaseModel):
     busy: list[SyncStatusEntryOut]
     woocommerce: WooSyncStatusOut
+
+
+class WooPushRequest(BaseModel):
+    busy_codes: list[int]
+
+
+class WooPushItemOut(BaseModel):
+    busy_code: int
+    name: str
+    action: str
+    error: str | None = None
+
+
+class WooPushResponse(BaseModel):
+    results: list[WooPushItemOut]

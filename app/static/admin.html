@@ -104,7 +104,24 @@
   </section>
 
   <section>
-    <h2>Assign a product barcode</h2>
+    <h2>Products <span class="muted" id="products-note"></span></h2>
+    <p class="muted">
+      Pick specific products and push just those to the live WooCommerce website now —
+      doesn't wait for the periodic sync, and doesn't require the one-time seed-import
+      opt-in (picking a product here <em>is</em> the explicit opt-in for that product).
+    </p>
+    <button id="refresh-products-btn">Refresh</button>
+    <button id="push-selected-btn">Push selected to website</button>
+    <div class="error" id="push-error"></div>
+    <div id="push-results"></div>
+    <table>
+      <thead>
+        <tr><th><input type="checkbox" id="select-all-products" /></th><th>Code</th><th>Name</th><th>Price</th><th>Website</th><th>Barcode</th></tr>
+      </thead>
+      <tbody id="products-body"></tbody>
+    </table>
+
+    <h3>Assign a barcode</h3>
     <div class="inline-form">
       <label>Product <select id="bc-product"></select></label>
       <label>Barcode (scan or type) <input id="bc-value" autocomplete="off" /></label>
@@ -176,11 +193,25 @@ async function loadSalesPeople() {
   document.getElementById("sp-note").textContent = `(${people.length})`;
 }
 
+function wooStatus(p) {
+  if (!p.woo_product_id) return "not on website";
+  if (parseFloat(p.woo_synced_price) !== parseFloat(p.price)) return "price differs";
+  return "in sync";
+}
+
 async function loadProducts() {
   products = await api("/products");
   document.getElementById("bc-product").innerHTML = products
     .map(p => `<option value="${p.busy_code}">${p.name}${p.barcode ? " (has barcode: " + p.barcode + ")" : ""}</option>`)
     .join("");
+
+  document.getElementById("products-body").innerHTML = products.map(p => `<tr>
+    <td><input type="checkbox" class="product-check" value="${p.busy_code}" /></td>
+    <td>${p.busy_code}</td><td>${p.name}</td><td>${p.price}</td>
+    <td>${wooStatus(p)}</td><td>${p.barcode ?? ""}</td>
+  </tr>`).join("") || `<tr><td colspan="6" class="muted">No products synced yet.</td></tr>`;
+  document.getElementById("products-note").textContent = `(${products.length})`;
+  document.getElementById("select-all-products").checked = false;
 }
 
 async function loadQuotations() {
@@ -253,6 +284,34 @@ document.getElementById("sync-btn").addEventListener("click", async () => {
     document.getElementById("sp-error").textContent = "Sync triggered (runs in the background) — refresh in a few seconds.";
   } catch (e) {
     document.getElementById("sp-error").textContent = e.message;
+  }
+});
+
+document.getElementById("refresh-products-btn").addEventListener("click", () => loadProducts().catch(e => alert(e.message)));
+
+document.getElementById("select-all-products").addEventListener("change", e => {
+  document.querySelectorAll(".product-check").forEach(cb => { cb.checked = e.target.checked; });
+});
+
+document.getElementById("push-selected-btn").addEventListener("click", async () => {
+  document.getElementById("push-error").textContent = "";
+  document.getElementById("push-results").innerHTML = "";
+  const busyCodes = [...document.querySelectorAll(".product-check:checked")].map(cb => Number(cb.value));
+  if (busyCodes.length === 0) {
+    document.getElementById("push-error").textContent = "Select at least one product first.";
+    return;
+  }
+  try {
+    const { results } = await api("/sync/woocommerce/push", {
+      method: "POST",
+      body: JSON.stringify({ busy_codes: busyCodes }),
+    });
+    document.getElementById("push-results").innerHTML = "<ul>" + results.map(r =>
+      `<li><strong>${r.name || r.busy_code}</strong>: ${r.action}${r.error ? " — " + r.error : ""}</li>`
+    ).join("") + "</ul>";
+    await loadProducts();
+  } catch (e) {
+    document.getElementById("push-error").textContent = e.message;
   }
 });
 

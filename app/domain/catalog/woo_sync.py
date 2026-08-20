@@ -36,6 +36,14 @@ class WooPushResult:
     failed: int
 
 
+@dataclass(frozen=True)
+class WooPushItemResult:
+    busy_code: int
+    name: str
+    action: str  # "created" | "updated" | "skipped" | "failed" | "not_found"
+    error: str | None = None
+
+
 def get_woo_sync_state(session: Session) -> WooSyncState:
     state = session.get(WooSyncState, 1)
     if state is None:
@@ -137,3 +145,68 @@ async def push_products_to_woocommerce(
     return WooPushResult(
         seeded=seeded, created=created, updated=updated, skipped=skipped, failed=failed
     )
+
+
+async def push_products_by_code(
+    session: Session,
+    woo: WooCommerceClient,
+    busy_codes: list[int],
+    *,
+    new_product_status: str = "private",
+) -> list[WooPushItemResult]:
+    """Push specifically chosen products now — a superadmin clicking "push these to the
+    website" (app/api/v1/sync.py), not the periodic full-catalog pass above.
+
+    Deliberately bypasses seed mode: the whole point of seed mode is to stop an
+    *automatic* sync from silently bulk-creating a live site's worth of products.
+    Someone hand-picking specific products and clicking a button is already the explicit,
+    one-at-a-time opt-in seed mode exists to wait for — gating it again here would just
+    make the button not work until a separate seed-import was also run."""
+    results: list[WooPushItemResult] = []
+    for code in busy_codes:
+        product = session.get(Product, code)
+        if product is None or not product.is_active:
+            results.append(WooPushItemResult(busy_code=code, name="", action="not_found"))
+            continue
+
+        try:
+            if product.woo_product_id is None:
+                category_id = await _ensure_category(session, woo, product.item_group)
+                created_product = await woo.create_product(
+                    {
+                        "name": product.name,
+                        "sku": str(product.busy_code),
+                        "regular_price": str(product.price),
+                        "manage_stock": False,
+                        "status": new_product_status,
+                        "categories": [{"id": category_id}],
+                    }
+                )
+                product.woo_product_id = int(created_product["id"])
+                product.woo_synced_price = product.price
+                session.commit()
+                results.append(
+                    WooPushItemResult(busy_code=code, name=product.name, action="created")
+                )
+                continue
+
+            if product.woo_synced_price == product.price:
+                results.append(
+                    WooPushItemResult(busy_code=code, name=product.name, action="skipped")
+                )
+                continue
+
+            await woo.update_product(product.woo_product_id, {"regular_price": str(product.price)})
+            product.woo_synced_price = product.price
+            session.commit()
+            results.append(WooPushItemResult(busy_code=code, name=product.name, action="updated"))
+        except (WooCommerceError, httpx.HTTPError) as exc:
+            session.rollback()
+            logger.warning("Manual WooCommerce push failed for product %s: %s", code, exc)
+            results.append(
+                WooPushItemResult(
+                    busy_code=code, name=product.name, action="failed", error=str(exc)
+                )
+            )
+
+    return results

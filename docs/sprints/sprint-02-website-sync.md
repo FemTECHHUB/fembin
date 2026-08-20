@@ -21,6 +21,12 @@ logic, ported; if that file isn't in `docs/reference/`, pull it from `Busin/docs
 - [x] Wire the Sprint 1 sync job to also push to WooCommerce after each successful BUSY pull
 - [x] Config: WooCommerce site URL + REST API credentials (**dedicated API key, not an admin's**)
 - [x] Admin visibility: `GET /api/v1/sync/status` extended to show last WooCommerce push result
+- [x] **Added 2026-08-20, at explicit request, ahead of any sprint plan:** manual/selective
+      push — `POST /api/v1/sync/woocommerce/push` (superadmin-only) and a product checklist +
+      button on `/admin`, so specific products can be pushed live right now rather than
+      waiting on the periodic full sync. Deliberately bypasses seed mode (picking a product
+      by hand already is the explicit opt-in seed mode exists to wait for) —
+      `app/domain/catalog/woo_sync.py`'s `push_products_by_code`.
 
 ## Out of scope
 
