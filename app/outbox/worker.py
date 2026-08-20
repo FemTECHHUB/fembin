@@ -75,10 +75,13 @@ async def process_next_job(session: Session, busy: BusyClient) -> OutboxJob | No
     try:
         result = await handler(job.payload, busy)
     except Exception as exc:
+        # Some exceptions (httpx connect/read timeouts in particular) have an empty
+        # str() — a bare exception class name is still more diagnosable than "".
+        message = str(exc)
         job.status = OutboxStatus.FAILED
-        job.last_error = str(exc)
+        job.last_error = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
         session.commit()
-        logger.warning("Outbox job %s (%s) failed: %s", job.id, job.job_type, exc)
+        logger.warning("Outbox job %s (%s) failed: %s", job.id, job.job_type, job.last_error)
         return job
 
     job.status = OutboxStatus.DONE

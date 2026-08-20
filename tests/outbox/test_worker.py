@@ -10,7 +10,7 @@ from app.config import Settings
 from app.db.session import SessionLocal
 from app.outbox.models import OutboxStatus
 from app.outbox.queue import enqueue
-from app.outbox.worker import drain_outbox, process_next_job
+from app.outbox.worker import drain_outbox, process_next_job, register_handler
 
 
 async def test_process_next_job_success(db_session: Session, busy_client: BusyClient) -> None:
@@ -58,6 +58,27 @@ async def test_process_next_job_unknown_job_type_fails(
     assert processed is not None
     assert processed.status == OutboxStatus.FAILED
     assert "Unknown job_type" in (processed.last_error or "")
+
+
+async def test_process_next_job_records_exception_type_when_message_is_empty(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    """httpx connect/read timeouts (and asyncio.TimeoutError) can have an empty str() —
+    a bare `str(exc)` would silently leave `last_error` useless (real bug, seen live
+    2026-08-20: a job that failed on a genuine BUSY connectivity timeout recorded ""
+    instead of any diagnosable message)."""
+
+    async def _raise_empty(payload: dict[str, object], busy: BusyClient) -> dict[str, object]:
+        raise TimeoutError()
+
+    register_handler("test_empty_error", _raise_empty)
+    enqueue(db_session, job_type="test_empty_error", payload={}, idempotency_key="q-empty")
+
+    processed = await process_next_job(db_session, busy_client)
+
+    assert processed is not None
+    assert processed.status == OutboxStatus.FAILED
+    assert processed.last_error == "TimeoutError"
 
 
 async def test_process_next_job_empty_queue_returns_none(
