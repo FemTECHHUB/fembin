@@ -154,12 +154,21 @@ Moniepoint push is a row here first, so a crash mid-post never loses or duplicat
 
 **Built ahead of schedule:** a minimal version of `outbox` (generic `job_type`/`payload`
 dispatch, currently just `"add_voucher"`) plus `POST /api/v1/quotations` (Sale Quotation,
-`VchType=26`) and `GET /api/v1/outbox/{id}` exist already, built ad hoc at explicit
-request rather than in this feature's normal Sprint 3/4 sequence — see
+`VchType=26`), `GET /api/v1/quotations`, and `GET /api/v1/outbox/{id}` exist already, built
+ad hoc at explicit request rather than in this feature's normal Sprint 3/4 sequence — see
 `app/outbox/`, `app/domain/orders/quotations.py`. The Sale Quotation XML shape is
-**unverified** against real BUSY (CLAUDE.md §8 tracks this). Orders/payments/vouchers
-below are still unbuilt; the outbox worker is generic enough that Sprint 3/4 should
-extend it, not replace it.
+**confirmed** against real BUSY (CLAUDE.md §8). Orders/payments/vouchers below are still
+unbuilt; the outbox worker is generic enough that Sprint 3/4 should extend it, not replace
+it.
+
+**Also built ahead of schedule:** a minimal `users` table (`app/db/models.py`) and JWT auth
+(`app/domain/auth/`, `POST /api/v1/auth/users`, `POST /api/v1/auth/login`), each user tied
+to exactly one Material Center — this is NFR6 (§8 NFRs table below) pulled forward from
+Sprint 5, at explicit request, so the quotation endpoints above could be scoped to a real
+identity rather than free-text caller input. `POST /api/v1/quotations` now requires this
+token and always uses the caller's own material center; `GET /api/v1/quotations` is scoped
+to it. There is still no admin/permissions system — user creation is open to any caller —
+this must be locked down before Sprint 5's pilot rollout, not left as-is.
 
 ### API endpoints
 

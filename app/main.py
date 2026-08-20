@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.v1 import categories, material_centers, outbox, products, quotations, sync
+from app.api.v1 import auth, categories, material_centers, outbox, products, quotations, sync
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.domain.catalog.scheduler import catalog_sync_loop
@@ -96,6 +96,7 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    app.include_router(auth.router, prefix="/api/v1")
     app.include_router(products.router, prefix="/api/v1")
     app.include_router(categories.router, prefix="/api/v1")
     app.include_router(material_centers.router, prefix="/api/v1")

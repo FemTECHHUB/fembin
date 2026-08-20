@@ -79,6 +79,24 @@ class Product(Base):
     )
 
 
+class User(Base):
+    """An app login — a rep or cashier at a real branch. Every user is tied to exactly one
+    `MaterialCenter` (CLAUDE.md NFR6 / PRD §6): every action they take (creating a
+    quotation, eventually a sale) is scoped to that material center rather than left as
+    free-text input, so BUSY vouchers and our own records reflect a real identity instead
+    of only ever showing the shared BUSY service account."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    full_name: Mapped[str] = mapped_column(String(255))
+    material_center_code: Mapped[int] = mapped_column(ForeignKey("material_centers.busy_code"))
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class WooSyncState(Base):
     """Singleton row (id=1) — the WooCommerce push's own state, separate from the BUSY-side
     `sync_state` checkpoints: the one-time seed-import opt-in (CLAUDE.md-style deliberate

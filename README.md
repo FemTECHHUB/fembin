@@ -42,6 +42,28 @@ posted; `GET /api/v1/outbox/{id}` looks up any single enqueued job. The outbox w
 the catalog sync scheduler are both off by default per-process — set
 `OUTBOX_WORKER_ENABLED=true` / `CATALOG_SYNC_ENABLED=true` to run them.
 
+### Auth
+
+Every user is tied to exactly one `MaterialCenter` (branch) — CLAUDE.md NFR6: actions need
+a real identity, not just the shared BUSY service account. `POST /api/v1/auth/users`
+creates a user against an existing, active material center; `POST /api/v1/auth/login`
+returns a JWT (`JWT_SECRET_KEY` — set a real one outside dev, see `.env.example`).
+
+The Sale Quotation routes require this token: `material_center_name` is no longer a
+request field — it's always the caller's own assigned branch, and `GET /api/v1/quotations`
+only ever shows that branch's quotations. There's no admin/permissions layer yet (user
+creation is currently open to anyone) — this must be locked down before Sprint 5's pilot
+rollout.
+
+```bash
+curl -s -X POST localhost:8000/api/v1/auth/users -H 'content-type: application/json' -d \
+  '{"username":"taiwo.rep","password":"...","full_name":"Taiwo","material_center_code":201}'
+curl -s -X POST localhost:8000/api/v1/auth/login -H 'content-type: application/json' -d \
+  '{"username":"taiwo.rep","password":"..."}'
+# -> {"access_token": "...", "token_type": "bearer"}
+curl -s localhost:8000/api/v1/quotations -H 'Authorization: Bearer <token>'
+```
+
 Every HTTP request is access-logged (`app.access` logger: method, path, status, duration).
 Every catalog sync / outbox drain is logged per step with timing. Two ops scripts log a
 full listing directly rather than going through the API — useful for eyeballing state in

@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     outbox_worker_enabled: bool = False
     outbox_worker_interval_seconds: float = 5.0
 
+    # Auth (PRD NFR6 — every action tied to a real user/material center, not the shared
+    # BUSY service account). Dev-only default secret; a real deployment MUST override this
+    # via env (CLAUDE.md §6 — no secrets in code).
+    jwt_secret_key: str = "dev-only-change-me-3f8a1c9d7b2e4f60a5d8c1b3e7f92046"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 480  # one working shift
+
     # Logging
     log_level: str = "INFO"
 

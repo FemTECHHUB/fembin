@@ -126,25 +126,52 @@ def _payload_to_request(payload: dict[str, Any]) -> QuotationRequest:
 
 
 def enqueue_sale_quotation(
-    session: Session, request: QuotationRequest, *, idempotency_key: str
+    session: Session,
+    request: QuotationRequest,
+    *,
+    idempotency_key: str,
+    created_by_user_id: int,
+    created_by_username: str,
+    material_center_code: int,
 ) -> OutboxJob:
     """Just a local DB insert (app/outbox/queue.py) — safe to call inline from a request
     handler. `VchNo` isn't computed yet; that happens in the worker, at post time (see
-    module docstring for why)."""
+    module docstring for why).
+
+    `created_by_*`/`material_center_code` record which authenticated user (CLAUDE.md NFR6)
+    and branch this action belongs to — stored alongside the request, not inside the BUSY
+    XML itself (SaleQuotation has no confirmed Narration/Remarks field to stamp identity
+    into; see CLAUDE.md §8)."""
+    payload = _request_to_payload(request)
+    payload["created_by_user_id"] = created_by_user_id
+    payload["created_by_username"] = created_by_username
+    payload["material_center_code"] = material_center_code
     return enqueue(
         session,
         job_type=JOB_TYPE,
-        payload=_request_to_payload(request),
+        payload=payload,
         idempotency_key=idempotency_key,
     )
 
 
-def list_quotations(session: Session) -> list[OutboxJob]:
+def list_quotations(
+    session: Session, *, material_center_code: int | None = None
+) -> list[OutboxJob]:
     """Every Sale Quotation ever enqueued, most recent first — status (queued/running/
     done/failed) plus the BUSY-assigned VchNo/VchCode once processed, so a caller can
-    see exactly which ones have actually been posted vs. still pending."""
+    see exactly which ones have actually been posted vs. still pending.
+
+    `material_center_code`, when given, scopes the list to quotations created by a user
+    tied to that branch (CLAUDE.md NFR6) — filtered in Python rather than SQL since it
+    lives inside the generic outbox `payload` JSON, not a dedicated column (the outbox is
+    shared infrastructure for every future job type, not just quotations)."""
     stmt = select(OutboxJob).where(OutboxJob.job_type == JOB_TYPE).order_by(OutboxJob.id.desc())
-    return list(session.scalars(stmt))
+    jobs = list(session.scalars(stmt))
+    if material_center_code is not None:
+        jobs = [
+            job for job in jobs if job.payload.get("material_center_code") == material_center_code
+        ]
+    return jobs
 
 
 async def _handle_add_sale_quotation(payload: dict[str, Any], busy: BusyClient) -> dict[str, Any]:

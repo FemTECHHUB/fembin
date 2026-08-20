@@ -19,9 +19,11 @@ import pytest_asyncio
 from sqlalchemy.orm import Session
 
 from app.busy.client import BusyClient
-from app.config import Settings
-from app.db.models import Category, MaterialCenter, Product, SyncState, WooSyncState
+from app.config import Settings, get_settings
+from app.db.models import Category, MaterialCenter, Product, SyncState, User, WooSyncState
 from app.db.session import SessionLocal
+from app.domain.auth.tokens import create_access_token
+from app.domain.auth.users import create_user
 from app.integrations.woocommerce import WooCommerceClient
 from app.outbox.models import OutboxJob
 from tests.fixtures.mock_busy import run_mock_busy_server
@@ -83,6 +85,7 @@ def catalog_sync_settings() -> Iterator[Settings]:
 
 
 def _clean_catalog_tables(session: Session) -> None:
+    session.query(User).delete()  # FK to material_centers — must go first
     session.query(Product).delete()
     session.query(Category).delete()
     session.query(MaterialCenter).delete()
@@ -102,3 +105,34 @@ def db_session() -> Iterator[Session]:
         session.rollback()
         _clean_catalog_tables(session)
         session.close()
+
+
+@pytest.fixture
+def material_center(db_session: Session) -> MaterialCenter:
+    """A real-shaped branch (matches the live "Main Store", busy_code=201) for tests that
+    need a user tied to one."""
+    mc = MaterialCenter(busy_code=201, name="Main Store", is_active=True)
+    db_session.add(mc)
+    db_session.commit()
+    db_session.refresh(mc)
+    return mc
+
+
+@pytest.fixture
+def test_user(db_session: Session, material_center: MaterialCenter) -> User:
+    return create_user(
+        db_session,
+        username="taiwo.rep",
+        password="test-pass-123",
+        full_name="Taiwo Adeyemi",
+        material_center_code=material_center.busy_code,
+    )
+
+
+@pytest.fixture
+def auth_headers(test_user: User) -> dict[str, str]:
+    """Bearer header for API-level tests — signed with the app's actual settings
+    (get_settings(), the same lru_cached instance app/api/v1/deps.py decodes with), not a
+    throwaway secret, so the token verifies against a real running app."""
+    token = create_access_token(test_user, settings=get_settings())
+    return {"Authorization": f"Bearer {token}"}

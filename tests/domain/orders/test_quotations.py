@@ -83,7 +83,14 @@ def test_enqueue_sale_quotation_creates_outbox_job_without_computing_vchno(
 ) -> None:
     """VchNo isn't known yet at enqueue time — computing it here (rather than in the
     worker, at post time) would race two back-to-back quotations onto the same number."""
-    job = enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="quote-1")
+    job = enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="quote-1",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
 
     assert job.job_type == JOB_TYPE
     assert job.status == OutboxStatus.QUEUED
@@ -108,7 +115,14 @@ async def test_handle_add_sale_quotation_computes_next_vchno_and_posts(
 async def test_worker_processes_a_queued_sale_quotation_end_to_end(
     db_session: Session, busy_client: BusyClient
 ) -> None:
-    enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="quote-e2e")
+    enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="quote-e2e",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
 
     processed = await process_next_job(db_session, busy_client)
 
@@ -153,8 +167,22 @@ async def test_worker_leaves_unknown_prefix_starting_at_one(
 
 
 def test_list_quotations_returns_most_recent_first(db_session: Session) -> None:
-    first = enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-1")
-    second = enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-2")
+    first = enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="list-1",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
+    second = enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="list-2",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
 
     jobs = list_quotations(db_session)
 
@@ -162,10 +190,40 @@ def test_list_quotations_returns_most_recent_first(db_session: Session) -> None:
     assert all(j.job_type == JOB_TYPE for j in jobs)
 
 
+def test_list_quotations_scoped_to_material_center(db_session: Session) -> None:
+    same_center = enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="list-mc-201",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
+    enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="list-mc-1155",
+        created_by_user_id=2,
+        created_by_username="jane.cashier",
+        material_center_code=1155,
+    )
+
+    jobs = list_quotations(db_session, material_center_code=201)
+
+    assert [j.id for j in jobs] == [same_center.id]
+
+
 async def test_list_quotations_reflects_status_after_processing(
     db_session: Session, busy_client: BusyClient
 ) -> None:
-    enqueue_sale_quotation(db_session, _sample_request(), idempotency_key="list-status")
+    enqueue_sale_quotation(
+        db_session,
+        _sample_request(),
+        idempotency_key="list-status",
+        created_by_user_id=1,
+        created_by_username="taiwo.rep",
+        material_center_code=201,
+    )
     await process_next_job(db_session, busy_client)
 
     jobs = list_quotations(db_session)

@@ -30,7 +30,9 @@ class QuotationCreateRequest(BaseModel):
     date: str  # DD-MM-YYYY
     sale_type_name: str
     customer_name: str
-    material_center_name: str
+    # material_center_name is deliberately NOT a client-supplied field — it's derived from
+    # the authenticated user's assigned material center (CLAUDE.md NFR6), not free-text
+    # caller input. See app/api/v1/quotations.py.
     items: list[QuotationItemIn]
 
 
