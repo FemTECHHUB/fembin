@@ -42,7 +42,7 @@
   .badge-running { background: #d97706; color: white; }
   .badge-done { background: #16a34a; color: white; }
   .badge-failed { background: #dc2626; color: white; }
-  .item-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 0.4rem; align-items: end; margin-top: 0.4rem; }
+  .item-row { display: grid; grid-template-columns: 2.5fr 1fr 0.7fr 1fr 1fr auto; gap: 0.4rem; align-items: end; margin-top: 0.4rem; }
   .item-row label { margin-top: 0; }
   .error { color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; white-space: pre-wrap; }
   .muted { opacity: 0.65; font-size: 0.85rem; }
@@ -113,6 +113,7 @@
 const API = "/api/v1";
 let token = sessionStorage.getItem("fembin_token") || null;
 let pollHandle = null;
+let products = [];
 
 function todayDDMMYYYY() {
   const d = new Date();
@@ -142,30 +143,58 @@ function showApp(show) {
   document.getElementById("app-main").style.display = show ? "block" : "none";
 }
 
-function addItemRow(values) {
+async function loadProducts() {
+  products = await api("/products?active=true");
+}
+
+function productOptionsHtml() {
+  const options = products
+    .map(p => `<option value="${p.busy_code}">${p.name} — ${p.price}</option>`)
+    .join("");
+  return `<option value="">— select a product —</option>${options}`;
+}
+
+function recomputeAmount(row) {
+  const qty = parseFloat(row.querySelector(".i-qty").value) || 0;
+  const price = parseFloat(row.querySelector(".i-price").value) || 0;
+  row.querySelector(".i-amount").value = (qty * price).toFixed(2);
+}
+
+function addItemRow() {
   const row = document.createElement("div");
   row.className = "item-row";
-  const v = values || { item_name: "", unit_name: "Pcs.", qty: "1", price: "0", amount: "0" };
   row.innerHTML = `
-    <label>Item name <input class="i-name" value="${v.item_name}" /></label>
-    <label>Unit <input class="i-unit" value="${v.unit_name}" /></label>
-    <label>Qty <input class="i-qty" value="${v.qty}" /></label>
-    <label>Price <input class="i-price" value="${v.price}" /></label>
-    <label>Amount <input class="i-amount" value="${v.amount}" /></label>
+    <label>Product <select class="i-product">${productOptionsHtml()}</select></label>
+    <label>Unit <input class="i-unit" readonly /></label>
+    <label>Qty <input class="i-qty" value="1" /></label>
+    <label>Price <input class="i-price" value="0" /></label>
+    <label>Amount <input class="i-amount" value="0.00" readonly /></label>
     <button type="button" class="remove-item-btn">✕</button>
   `;
+  row.querySelector(".i-product").addEventListener("change", e => {
+    const product = products.find(p => String(p.busy_code) === e.target.value);
+    row.querySelector(".i-unit").value = product ? product.unit : "";
+    row.querySelector(".i-price").value = product ? product.price : "0";
+    recomputeAmount(row);
+  });
+  row.querySelector(".i-qty").addEventListener("input", () => recomputeAmount(row));
+  row.querySelector(".i-price").addEventListener("input", () => recomputeAmount(row));
   row.querySelector(".remove-item-btn").addEventListener("click", () => row.remove());
   document.getElementById("item-rows").appendChild(row);
 }
 
 function collectItems() {
-  return [...document.querySelectorAll("#item-rows .item-row")].map(row => ({
-    item_name: row.querySelector(".i-name").value,
-    unit_name: row.querySelector(".i-unit").value,
-    qty: row.querySelector(".i-qty").value,
-    price: row.querySelector(".i-price").value,
-    amount: row.querySelector(".i-amount").value,
-  }));
+  return [...document.querySelectorAll("#item-rows .item-row")].map(row => {
+    const select = row.querySelector(".i-product");
+    const product = products.find(p => String(p.busy_code) === select.value);
+    return {
+      item_name: product ? product.name : "",
+      unit_name: row.querySelector(".i-unit").value,
+      qty: row.querySelector(".i-qty").value,
+      price: row.querySelector(".i-price").value,
+      amount: row.querySelector(".i-amount").value,
+    };
+  });
 }
 
 function statusBadge(status) {
@@ -200,6 +229,7 @@ async function loadQuotations() {
 async function enterApp() {
   showApp(true);
   document.getElementById("q-date").value = todayDDMMYYYY();
+  await loadProducts();
   document.getElementById("item-rows").innerHTML = "";
   addItemRow();
   await loadWhoami();
@@ -238,6 +268,11 @@ document.getElementById("refresh-btn").addEventListener("click", () => loadQuota
 
 document.getElementById("submit-quote-btn").addEventListener("click", async () => {
   document.getElementById("quote-error").textContent = "";
+  const items = collectItems();
+  if (items.length === 0 || items.some(i => !i.item_name)) {
+    document.getElementById("quote-error").textContent = "Select a product for every item row.";
+    return;
+  }
   try {
     await api("/quotations", {
       method: "POST",
@@ -247,7 +282,7 @@ document.getElementById("submit-quote-btn").addEventListener("click", async () =
         date: document.getElementById("q-date").value,
         sale_type_name: document.getElementById("q-saletype").value,
         customer_name: document.getElementById("q-customer").value,
-        items: collectItems(),
+        items,
       }),
     });
     await loadQuotations();
