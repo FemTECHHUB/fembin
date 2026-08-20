@@ -117,10 +117,17 @@ async def sync_salesmen(
     full: bool = False,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> SyncResult:
-    """MasterType=33 — "Executive" in BUSY's own schema, "Salesmen" in its UI. Bulk SQL
-    only, same shape as sync_material_centers — confirmed real (docs/reference/
-    14-command-center.md), though the original research-phase probe against this same
-    company found it genuinely empty (this business wasn't using the feature yet)."""
+    """MasterType=19 — "Broker" in BUSY's generic schema, but **this company relabels it
+    "Engineer"** (a repair-shop's equivalent of a sales rep — confirmed live 2026-08-20 via
+    a screenshot of BUSY's own "List of Engineer" GUI screen: all 13 real names + aliases
+    matched exactly against `SELECT Name, Alias FROM Master1 WHERE MasterType=19`).
+
+    `MasterType=33` ("Executive", genuinely BUSY's own "Salesmen" label) was tried first —
+    it's real, but genuinely empty for this company (confirmed both in the original
+    research phase and again live here), because this business uses the repurposed Broker
+    master instead. This mapping is company-specific configuration, not a BUSY constant —
+    a different BUSY company could easily use MasterType=33 as intended, or something else
+    entirely. Re-verify before assuming MasterType=19 elsewhere (CLAUDE.md §8)."""
     entity = "salesmen"
     since = -1 if full else get_last_stamp(session, entity)
     rows = await fetch_all_pages(
@@ -134,7 +141,7 @@ async def sync_salesmen(
             "BlockedMaster",
             "DeactiveMaster",
         ],
-        from_and_where=f"Master1 WHERE MasterType = {int(MasterType.EXECUTIVE)}",
+        from_and_where=f"Master1 WHERE MasterType = {int(MasterType.BROKER)}",
         since=since,
         page_size=page_size,
     )

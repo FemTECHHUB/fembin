@@ -179,12 +179,17 @@ to it.
 - Sales people credited on a quotation, distinct from the logged-in `User` (several
   people may share one till/login) — **first built wrong** as a table we owned
   (`sales_people`, callers could create rows into it), corrected same day: this is a real
-  BUSY master (`Salesman` in `app/db/models.py`, BUSY's Executive, `MasterType=33`),
-  synced read-only exactly like Material Center (CLAUDE.md §8 has the full story,
-  including a caveat about whether it's tied to a branch — it isn't, as far as the schema
-  shows). `GET /api/v1/sales-people` lists BUSY's own synced list; there is no create/edit
-  endpoint. Still stored in the outbox job's own payload, **not** in the BUSY XML — there
-  is no confirmed Narration/Remarks field on `SaleQuotation` to carry it.
+  BUSY master (`Salesman` in `app/db/models.py`), synced read-only exactly like Material
+  Center. **Also initially mis-mapped to the wrong `MasterType`** — guessed BUSY's generic
+  "Executive"/Salesmen master (`MasterType=33`, genuinely empty for this company), but a
+  live GUI screenshot ("List of Engineer") proved this company actually repurposes
+  `MasterType=19` ("Broker" generically) for that role — confirmed by an exact 13-name
+  live match, see CLAUDE.md §8 for the full story, including a caveat about whether it's
+  tied to a branch (it isn't, as far as the schema shows) and that this MasterType mapping
+  is company-specific, not a BUSY-wide constant. `GET /api/v1/sales-people` lists BUSY's
+  own synced list; there is no create/edit endpoint. Still stored in the outbox job's own
+  payload, **not** in the BUSY XML — there is no confirmed Narration/Remarks field on
+  `SaleQuotation` to carry it.
 - `Product.barcode` — local-only, **not** BUSY data. Live-checked 2026-08-20: this
   company's real Item master has no barcode field populated anywhere (CLAUDE.md §8).
   Assigned via `PUT /api/v1/products/{code}/barcode` (superadmin-only); the console's
@@ -222,7 +227,7 @@ to it.
 | `GET` | `/api/v1/customers/search?phone=` | Customer lookup for order creation |
 | `GET` | `/api/v1/material-centers` | Branches |
 | `GET` | `/api/v1/sale-types` | Sale type templates |
-| `GET` | `/api/v1/salesmen` | Executives (currently empty for this company — returns `[]` honestly) |
+| `GET` | `/api/v1/sales-people` | This company's "Engineer" list (BUSY `MasterType=19`/Broker, repurposed — CLAUDE.md §8; not the generic Executive master, which is empty here) — built ahead of schedule, see above |
 
 **Ops**
 | Method | Path | Purpose |

@@ -84,7 +84,7 @@ _PAGINATABLE_SALESMEN: list[dict[str, str]] = [
 _PAGINATABLE_DATASETS: dict[int, list[dict[str, str]]] = {
     6: _PAGINATABLE_ITEMS,
     11: _PAGINATABLE_MATERIAL_CENTERS,
-    33: _PAGINATABLE_SALESMEN,
+    19: _PAGINATABLE_SALESMEN,  # this company's real MasterType for "salesmen" (CLAUDE.md §8)
 }
 
 _TOP_RE = re.compile(r"SELECT TOP (\d+)")

@@ -105,18 +105,24 @@ class User(Base):
 
 
 class Salesman(Base):
-    """A BUSY Executive (MasterType=33) — "Salesmen" in BUSY's own terminology. A named
-    individual credited on a Sale Quotation, distinct from `User`: several people may
-    share one till/login at a branch, but each sale should still be attributable to
-    whoever actually made it (CLAUDE.md NFR6).
+    """A named individual credited on a Sale Quotation, distinct from `User`: several
+    people may share one till/login at a branch, but each sale should still be
+    attributable to whoever actually made it (CLAUDE.md NFR6).
+
+    Synced from BUSY's `MasterType=19` ("Broker" in BUSY's generic schema — **this
+    company relabels it "Engineer"**, its repair-shop equivalent of a sales rep; confirmed
+    live 2026-08-20 against the BUSY GUI's own "List of Engineer" screen, exact match on
+    all 13 names/aliases). `MasterType=33` ("Executive", BUSY's own generic "Salesmen"
+    label) was tried first and is real, but genuinely empty for this company — see
+    app/domain/catalog/sync.py's `sync_salesmen` docstring and CLAUDE.md §8 for the full
+    story, including why this mapping is company-specific and not a safe assumption
+    elsewhere.
 
     Corrected 2026-08-20: this was first built as a table we owned and let callers create
-    entries into (`sales_people`) — wrong. BUSY already has a real master for this
-    (confirmed in the research phase, docs/reference/14-command-center.md), so it must be
-    synced read-only like Product/MaterialCenter, never created/edited from our side.
-    Whether BUSY ties an Executive to a specific Material Center is unconfirmed — the
-    generic Master1 schema shows no such field, so no branch-scoping is applied here
-    (CLAUDE.md §8)."""
+    entries into (`sales_people`) — wrong. BUSY already has a real master for this, so it
+    must be synced read-only like Product/MaterialCenter, never created/edited from our
+    side. Whether BUSY ties this master to a specific Material Center is unconfirmed — the
+    generic Master1 schema shows no such field, so no branch-scoping is applied here."""
 
     __tablename__ = "salesmen"
 
