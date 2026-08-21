@@ -12,6 +12,7 @@ prototype there proved the approach against live BUSY data and is not being thro
 4. **[`docs/reference/`](docs/reference/)** — curated copies of the validated technical findings
    (real BUSY schema, service codes, constants, POS integration details) the PRD and sprints
    depend on.
+5. **[`DEPLOYMENT.md`](DEPLOYMENT.md)** — step-by-step cPanel deployment checklist.
 
 ## Running locally
 

@@ -423,7 +423,13 @@ credit_partner_bills   (id PK, partner_id FK, busy_vch_code, amount, due_date,
 ## 13. Open Questions
 
 - ☐ Payment gateway for **online** (website) checkout — Paystack is off; nothing confirmed yet.
-- ☐ MySQL hosting target (same VPS as backend, or managed DB)?
+- ☑ MySQL hosting target — **decided 2026-08-21**: cPanel shared hosting, same account's
+  MySQL (via cPanel's MySQL Databases tool), not a separate managed DB or VPS. This
+  shaped a real architectural decision: the in-process background loops
+  (`CATALOG_SYNC_ENABLED`/`OUTBOX_WORKER_ENABLED`) aren't relied on in this deployment —
+  a Passenger-managed process isn't guaranteed to stay resident — cPanel Cron Jobs
+  calling `scripts/drain_outbox_once.py`/`run_catalog_sync_once.py` do the same work
+  instead. See `DEPLOYMENT.md`.
 - ☐ Loyalty redemption at POS: does it need cashier approval/limits, or fully self-service?
 - ☐ Who owns approving new-tier/new-rule changes in the loyalty admin UI?
 - ☐ Which credit partners are actually being signed (the 7 above are researched examples, not confirmed)?
