@@ -15,8 +15,12 @@ reimplementation from memory.
 
 import re
 from dataclasses import dataclass, field
+from typing import TypeAlias
 
-type XmlValue = str | dict[str, "XmlValue | list[XmlValue]"]
+# Plain-assignment alias, not a PEP 695 `type` statement: the deployment host's
+# newest interpreter is 3.11 (cPanel Setup Python App), and `type X = ...` is
+# 3.12+-only syntax that fails at import time there.
+XmlValue: TypeAlias = str | dict[str, "XmlValue | list[XmlValue]"]
 
 _NAMED_ENTITIES = (
     ("&lt;", "<"),
