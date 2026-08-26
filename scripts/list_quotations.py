@@ -11,6 +11,10 @@ Usage: uv run python scripts/list_quotations.py
 """
 
 import logging
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings
 from app.db.session import SessionLocal

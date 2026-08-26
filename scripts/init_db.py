@@ -12,6 +12,11 @@ import argparse
 import logging
 import subprocess
 import sys
+from pathlib import Path
+
+# Ensure the project root is on sys.path so `import app` works even when invoked
+# from a virtualenv that never had `pip install -e .` (e.g. cPanel Passenger).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy.orm import Session
 
