@@ -78,11 +78,28 @@ def seed_user(
         sys.exit(1)
 
 
+def ensure_material_center(session: Session, code: int) -> None:
+    """Insert a placeholder material center when BUSY hasn't been synced yet — dev/testing
+    only. On a real deployment the catalog sync populates this table from BUSY."""
+    from app.db.models import MaterialCenter
+
+    if session.get(MaterialCenter, code) is None:
+        session.add(MaterialCenter(busy_code=code, name=f"Branch {code}", is_active=True))
+        session.commit()
+        logger.info("seeded placeholder material_center_code=%s", code)
+
+
 def main() -> None:
     setup_logging(get_settings().log_level)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--material-center-code", required=True, type=int)
+    parser.add_argument(
+        "--seed-material-center",
+        action="store_true",
+        help="Insert the material center if BUSY hasn't been synced yet (dev/testing only — "
+        "on a real deployment, run a catalog sync so branch codes come from BUSY)",
+    )
 
     parser.add_argument("--admin-username", default="admin")
     parser.add_argument("--admin-password", default="Admin@123")
@@ -97,6 +114,8 @@ def main() -> None:
 
     session = SessionLocal()
     try:
+        if args.seed_material_center:
+            ensure_material_center(session, args.material_center_code)
         seed_user(
             session,
             username=args.admin_username,
