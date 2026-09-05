@@ -252,9 +252,10 @@ async def sync_products(
         is_full_run = True
     elif strategy == "reconcile":
         last_full_at = get_last_full_at(session, entity)
-        due = last_full_at is None or (
-            now - last_full_at
-        ).total_seconds() >= reconcile_interval_seconds
+        due = (
+            last_full_at is None
+            or (now - last_full_at).total_seconds() >= reconcile_interval_seconds
+        )
         since = -1 if due else get_last_stamp(session, entity)
         is_full_run = due
     else:  # "stamp"

@@ -166,3 +166,102 @@ async def test_push_products_by_code_reports_unknown_product(
     assert len(results) == 1
     assert results[0].busy_code == 999999
     assert results[0].action == "not_found"
+
+
+async def test_name_change_is_pushed_for_existing_product(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    """A BUSY rename must reach the store even when the price is unchanged — the sync
+    needs woo_synced_name for this since BUSY's Stamp won't flag an edit (CLAUDE.md §8)."""
+    _add_product(db_session, code=101, group="General", price="1000")
+    set_seeded(db_session)
+    await push_products_to_woocommerce(db_session, woo_client)
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.name = "Product 101 Renamed"
+    db_session.commit()
+
+    result = await push_products_to_woocommerce(db_session, woo_client)
+    assert (result.created, result.updated, result.skipped, result.failed) == (0, 1, 0, 0)
+
+    woo_product = next(p for p in woo_server.products if p["sku"] == "101")
+    assert woo_product["name"] == "Product 101 Renamed"
+    assert db_session.get(Product, 101) is not None
+    assert db_session.get(Product, 101).woo_synced_name == "Product 101 Renamed"
+
+
+async def test_deactivated_product_is_hidden_once_then_left_alone(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    """BUSY deactivates an item (CLAUDE.md §2.4 — mark inactive, don't delete): the first
+    pass sets the WooCommerce product to `private` and records woo_hidden, so later passes
+    don't re-issue the same status update. It must not stay live and sellable."""
+    _add_product(db_session, code=101, group="General", price="1000")
+    set_seeded(db_session)
+    first = await push_products_to_woocommerce(db_session, woo_client)
+    assert first.created == 1
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.is_active = False
+    db_session.commit()
+
+    hide = await push_products_to_woocommerce(db_session, woo_client)
+    assert (hide.updated, hide.skipped) == (1, 0)
+    woo_product = next(p for p in woo_server.products if p["sku"] == "101")
+    assert woo_product["status"] == "private"
+    assert db_session.get(Product, 101) is not None
+    assert db_session.get(Product, 101).woo_hidden is True
+
+    # Already hidden — no WooCommerce call to repeat it, counted as skipped.
+    again = await push_products_to_woocommerce(db_session, woo_client)
+    assert (again.updated, again.skipped) == (0, 1)
+
+
+async def test_reactivated_product_is_republished(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    """Re-hiding logic's inverse: BUSY unblocks the item again, the sync puts it back on
+    the store (status publish) and clears woo_hidden."""
+    _add_product(db_session, code=101, group="General", price="1000")
+    set_seeded(db_session)
+    await push_products_to_woocommerce(db_session, woo_client)
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.is_active = False
+    product_101.woo_hidden = True
+    db_session.commit()
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.is_active = True
+    db_session.commit()
+
+    result = await push_products_to_woocommerce(db_session, woo_client)
+    assert (result.updated, result.skipped) == (1, 0)
+    woo_product = next(p for p in woo_server.products if p["sku"] == "101")
+    assert woo_product["status"] == "publish"
+    assert db_session.get(Product, 101) is not None
+    assert db_session.get(Product, 101).woo_hidden is False
+
+
+async def test_push_products_by_code_skips_deactivated_product_not_not_found(
+    db_session: Session, woo_client: WooCommerceClient, woo_server: MockWooServer
+) -> None:
+    """A deactivated product exists in our mirror (CLAUDE.md §2.4) — pushing it must say
+    "skipped", not mislabel it "not_found", and must not re-publish it to the store."""
+    _add_product(db_session, code=101, group="General", price="1000")
+    results = await push_products_by_code(db_session, woo_client, [101])
+    assert results[0].action == "created"
+
+    product_101 = db_session.get(Product, 101)
+    assert product_101 is not None
+    product_101.is_active = False
+    db_session.commit()
+
+    results = await push_products_by_code(db_session, woo_client, [101])
+    assert len(results) == 1
+    assert results[0].action == "skipped"
+    assert results[0].name == "Product 101"

@@ -57,9 +57,7 @@ async def test_product_sync_strategy_full_refreshes_every_run(
     first = await sync_products(db_session, busy_client, full=True, page_size=3)
     assert first.changed == 8
 
-    second = await sync_products(
-        db_session, busy_client, full=False, strategy="full", page_size=3
-    )
+    second = await sync_products(db_session, busy_client, full=False, strategy="full", page_size=3)
     assert second.changed == 8
     assert second.stored == 8
     assert second.failed == 0
@@ -77,9 +75,7 @@ async def test_product_sync_strategy_stamp_is_incremental_and_near_zero(
     assert first.changed == 8
     assert first.incremental is False
 
-    second = await sync_products(
-        db_session, busy_client, full=False, strategy="stamp", page_size=3
-    )
+    second = await sync_products(db_session, busy_client, full=False, strategy="stamp", page_size=3)
     assert second.changed == 0
     assert second.incremental is True
 

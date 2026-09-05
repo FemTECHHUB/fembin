@@ -78,6 +78,14 @@ class Product(Base):
     # The price value last successfully pushed to WooCommerce — compared against `price`
     # to decide whether a live update is needed, independent of BUSY's Stamp (Sprint 2).
     woo_synced_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), default=None)
+    # The product name last pushed to WooCommerce — BUSY's Stamp doesn't advance on edits
+    # (CLAUDE.md §8), so a rename is only detectable by comparing the name we pushed before
+    # with the current one; this is that record, same idea as woo_synced_price.
+    woo_synced_name: Mapped[str | None] = mapped_column(String(255), default=None)
+    # The WooCommerce product has already been set to `private` because its BUSY record was
+    # deactivated — marks-deactivates without deleting (CLAUDE.md §2.4), and stops the sync
+    # issuing the same "hide" status update on every pass. Cleared when BUSY reactivates it.
+    woo_hidden: Mapped[bool] = mapped_column(default=False)
     # Locally-owned, NOT synced from BUSY — live-checked 2026-08-20 (CLAUDE.md §8): this
     # company's real Item master has no barcode data anywhere (PrintName just mirrors
     # Name). Catalog sync (app/domain/catalog/sync.py) must never overwrite this field.

@@ -85,7 +85,11 @@ class WooCommerceClient:
         return result
 
     async def find_category_by_name(self, name: str) -> JsonDict | None:
-        matches = await self._request("GET", f"/products/categories?search={quote(name)}")
+        # per_page=100 — the default 10 could silently miss an existing category with a
+        # shared-name match past page one, causing a duplicate to be created instead.
+        matches = await self._request(
+            "GET", f"/products/categories?search={quote(name)}&per_page=100"
+        )
         if not isinstance(matches, list):
             raise WooCommerceError(
                 "GET", "/products/categories", 200, "unexpected response shape (expected a list)"

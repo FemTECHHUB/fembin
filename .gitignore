@@ -21,3 +21,7 @@ build/
 
 # cron job output on a deployed server (DEPLOYMENT.md step 9) — never generated locally
 logs/*.log
+
+# cPanel Passenger entry point — the host generates/owns the deployed copy. Untracked so
+# a git pull can never conflict with, overwrite, or be overwritten by the server's version.
+passenger_wsgi.py
