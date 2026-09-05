@@ -14,6 +14,7 @@ app/domain/catalog/scheduler.py for how these get triggered.
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
@@ -48,9 +49,20 @@ def get_last_stamp(session: Session, entity: str) -> int:
     return row.last_stamp if row is not None else 0
 
 
+def get_last_full_at(session: Session, entity: str) -> datetime | None:
+    row = session.get(SyncState, entity)
+    return row.last_full_at if row is not None else None
+
+
 def _set_last_stamp(session: Session, entity: str, stamp: int) -> None:
     stmt = mysql_insert(SyncState).values(entity=entity, last_stamp=stamp)
     stmt = stmt.on_duplicate_key_update(last_stamp=stmt.inserted.last_stamp, updated_at=func.now())
+    session.execute(stmt)
+
+
+def _set_last_full_at(session: Session, entity: str, stamp_at: datetime) -> None:
+    stmt = mysql_insert(SyncState).values(entity=entity, last_full_at=stamp_at)
+    stmt = stmt.on_duplicate_key_update(last_full_at=stmt.inserted.last_full_at)
     session.execute(stmt)
 
 
@@ -202,13 +214,53 @@ async def sync_products(
     client: BusyClient,
     *,
     full: bool = False,
+    strategy: str = "full",
+    reconcile_interval_seconds: float = 3600.0,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> SyncResult:
     """MasterType=6 — Items. One GetMasterXML call per *changed, active* item for the real
     fields; newly-blocked items are marked inactive without a detail call at all — nothing
-    to fetch. Stock is deliberately not synced (PRD §5 non-goal, unsolved problem)."""
+    to fetch. Stock is deliberately not synced (PRD §5 non-goal, unsolved problem).
+
+    How often this run re-pulls the FULL item master vs. a Stamp-incremental pull is
+    governed by `strategy`, not hardcoded to this company's catalog size (CLAUDE.md §8):
+    BUSY's `Stamp` does NOT advance when an item is edited — observed live 2026-09-04.
+    Item 1613's name changed ("Cable-infinix Micro" -> "Cable-infinix Micro  B") while its
+    `Stamp` stayed at a value the saved checkpoint had already passed, so `WHERE Stamp >
+    last` silently skipped it; only a full re-pull saw it. Because `Stamp` is a coarse
+    creator/batch counter, not per-row versioning, incremental detection for products is
+    fundamentally unreliable here, so the upsert strategy decides the trade-off:
+
+      - strategy="stamp" (default): `WHERE Stamp > last` only. Cheapest, but MISSES edits
+        on installs where Stamp doesn't advance per edit — acceptable only where a periodic
+        full sync is guaranteed some other way.
+      - strategy="full": always `since=-1`, refresh the whole item master every run.
+        Correct and trivial on a tiny catalog; a full Master1 pull + per-item detail call
+        on a large install is heavy — that's why it isn't the default.
+      - strategy="reconcile": Stamp-incremental normally, but a FULL re-pull whenever the
+        last full run is older than `reconcile_interval_seconds`. Balances load and edit
+        freshness on a bigger install (an edit can still appear up to one interval late).
+
+    `full=True` force-overrides any strategy — full re-pull this run (CLAUDE.md §2.3's
+    explicit escape hatch, e.g. first run / suspected drift). `last_stamp` and
+    `last_full_at` are both recorded for operational reporting (sync/status)."""
     entity = "products"
-    since = -1 if full else get_last_stamp(session, entity)
+
+    now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC — MySQL DATETIME column
+    if full or strategy == "full":
+        since = -1
+        is_full_run = True
+    elif strategy == "reconcile":
+        last_full_at = get_last_full_at(session, entity)
+        due = last_full_at is None or (
+            now - last_full_at
+        ).total_seconds() >= reconcile_interval_seconds
+        since = -1 if due else get_last_stamp(session, entity)
+        is_full_run = due
+    else:  # "stamp"
+        since = get_last_stamp(session, entity)
+        is_full_run = False
+
     changed = await fetch_all_pages(
         client,
         select_columns=["Code", "Name", "Stamp", "BlockedMaster", "DeactiveMaster"],
@@ -276,7 +328,13 @@ async def sync_products(
         stored += 1
 
     _set_last_stamp(session, entity, max_stamp)
+    if is_full_run:
+        _set_last_full_at(session, entity, now)
     session.commit()
     return SyncResult(
-        entity=entity, changed=len(changed), incremental=not full, stored=stored, failed=failed
+        entity=entity,
+        changed=len(changed),
+        incremental=not is_full_run,
+        stored=stored,
+        failed=failed,
     )

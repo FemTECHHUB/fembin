@@ -29,9 +29,13 @@ async def test_run_catalog_sync_logs_timing_for_full_and_noop_resync(
         "products": 8,
         "salesmen": 2,
     }
+    # Products default to strategy="full" (config.py) because BUSY's Stamp doesn't advance
+    # on edits — see sync.py's sync_products docstring / CLAUDE.md §8 — so the "incremental"
+    # second run still refreshes all 8 products; material centers and salesmen are genuinely
+    # incremental and find nothing.
     assert {r.entity: r.changed for r in second.busy} == {
         "material_centers": 0,
-        "products": 0,
+        "products": 8,
         "salesmen": 0,
     }
 

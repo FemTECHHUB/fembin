@@ -25,6 +25,10 @@ class SyncState(Base):
 
     entity: Mapped[str] = mapped_column(String(64), primary_key=True)
     last_stamp: Mapped[int] = mapped_column(default=0)
+    # When the last FULL re-pull of this entity happened — set only on a full run, never
+    # on an incremental one. Drives the "reconcile" products sync strategy (config.py):
+    # full re-pull at most every `catalog_sync_products_reconcile_interval_seconds`.
+    last_full_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

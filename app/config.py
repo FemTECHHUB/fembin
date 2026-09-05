@@ -26,6 +26,21 @@ class Settings(BaseSettings):
     # than always-on. The manual POST /api/v1/sync/products trigger works regardless.
     catalog_sync_enabled: bool = False
     catalog_sync_interval_seconds: float = 300.0
+    # Products sync strategy (CLAUDE.md §8 — verified 2026-09-04): BUSY's Stamp does NOT
+    # advance when an item is edited, so a Stamp-incremental products sync silently misses
+    # name/price changes; only a full `Master1` re-pull sees them. Three modes:
+    #   "stamp"    — Stamp-incremental only, never auto-full. Cheapest, but MISSES edits
+    #                (the bug above). Use only if you know a specific BUSY install bumps
+    #                Stamp on edits, or you run periodic full syncs some other way.
+    #   "full"     — full `Master1` re-pull every run (+ per-item GetMasterXML detail).
+    #                Correct, and trivial on a tiny catalog; heavy on a large install.
+    #   "reconcile" — Stamp-incremental normally, but a FULL re-pull at least every
+    #                `catalog_sync_products_reconcile_interval_seconds`. Balances load and
+    #                edit freshness for a bigger BUSY install. Since BUSY only reports a
+    #                company-wide Stamp batch counter (not per-row versions), an edit can
+    #                still appear one interval late.
+    catalog_sync_products_strategy: str = "full"
+    catalog_sync_products_reconcile_interval_seconds: float = 3600.0
 
     # WooCommerce REST API (Sprint 2) — dedicated Read/Write key, not an admin's (PRD §6).
     # Left blank, the woo-push step is skipped entirely rather than failing the whole sync.

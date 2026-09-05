@@ -38,7 +38,7 @@ async def run_catalog_sync(
     then near-zero no-op re-sync" proof (Sprint 1 DoD) gets verified."""
     busy_results: list[SyncResult] = []
     async with BusyClient.from_settings(settings) as client:
-        for sync_fn in (sync_material_centers, sync_products, sync_salesmen):
+        for sync_fn in (sync_material_centers, sync_salesmen):
             session = session_factory()
             start = time.monotonic()
             try:
@@ -61,6 +61,38 @@ async def run_catalog_sync(
                 elapsed,
             )
             busy_results.append(result)
+
+        # Products use a configurable strategy (config.py's catalog_sync_products_strategy)
+        # rather than the Stamp-incremental gate — BUSY's Stamp doesn't advance on edits
+        # (CLAUDE.md §8), so "reconcile"/"full" are the options that catch them.
+        session = session_factory()
+        start = time.monotonic()
+        try:
+            result = await sync_products(
+                session,
+                client,
+                full=full,
+                strategy=settings.catalog_sync_products_strategy,
+                reconcile_interval_seconds=settings.catalog_sync_products_reconcile_interval_seconds,
+            )
+        except Exception:
+            session.rollback()
+            logger.exception("Catalog sync failed for %s", sync_products.__name__)
+            raise
+        finally:
+            session.close()
+        elapsed = time.monotonic() - start
+        logger.info(
+            "Catalog sync: entity=%s changed=%d stored=%d failed=%d "
+            "incremental=%s elapsed=%.2fs",
+            result.entity,
+            result.changed,
+            result.stored,
+            result.failed,
+            result.incremental,
+            elapsed,
+        )
+        busy_results.append(result)
 
     woo_result: WooPushResult | None = None
     if settings.woo_site_url:

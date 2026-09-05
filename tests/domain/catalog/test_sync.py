@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.busy.client import BusyClient
 from app.db.models import Product, Salesman
 from app.domain.catalog.sync import (
+    get_last_full_at,
     get_last_stamp,
     sync_material_centers,
     sync_products,
@@ -44,21 +45,68 @@ async def test_sync_products_paginates_and_marks_blocked_item_inactive(
     assert active.price == 1000
 
 
-async def test_full_sync_then_immediate_resync_is_near_zero(
+async def test_product_sync_strategy_full_refreshes_every_run(
     db_session: Session, busy_client: BusyClient
 ) -> None:
+    """strategy="full": every run is a full re-pull, even without the `full` flag.
+
+    For installs where BUSY's `Stamp` doesn't advance on edits (CLAUDE.md §8 — confirmed
+    live 2026-09-04 on item 1613), stamp-incremental silently misses a name/price change.
+    This strategy guarantees every edit reaches our mirror every run, at full re-pull cost
+    — right for a small catalog like this test company's."""
     first = await sync_products(db_session, busy_client, full=True, page_size=3)
     assert first.changed == 8
 
-    # Immediately re-run, incrementally — nothing in the mock dataset changed, so this
-    # must find zero rows, mirroring the prototype's proven "17.3s full -> 2.2s no-op" result.
-    second = await sync_products(db_session, busy_client, full=False, page_size=3)
+    second = await sync_products(
+        db_session, busy_client, full=False, strategy="full", page_size=3
+    )
+    assert second.changed == 8
+    assert second.stored == 8
+    assert second.failed == 0
+    assert second.incremental is False
+
+    assert get_last_stamp(db_session, "products") >= 40
+
+
+async def test_product_sync_strategy_stamp_is_incremental_and_near_zero(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    """strategy="stamp": Stamp-incremental only — the cheap default. Second run is a no-op
+    when nothing advanced, but MISSES in-place edits (the CLAUDE.md §8 caveat)."""
+    first = await sync_products(db_session, busy_client, full=True, page_size=3)
+    assert first.changed == 8
+    assert first.incremental is False
+
+    second = await sync_products(
+        db_session, busy_client, full=False, strategy="stamp", page_size=3
+    )
     assert second.changed == 0
-    assert second.stored == 0
     assert second.incremental is True
 
-    # The checkpoint itself didn't regress just because nothing changed.
-    assert get_last_stamp(db_session, "products") == 40
+
+async def test_product_sync_strategy_reconcile_records_and_respects_last_full(
+    db_session: Session, busy_client: BusyClient
+) -> None:
+    """strategy="reconcile": Stamp-incremental normally, but a FULL re-pull at least every
+    `reconcile_interval_seconds` (a tiny interval here forces every run to be full, proving
+    the `last_full_at` checkpoint drives the decision)."""
+    first = await sync_products(
+        db_session, busy_client, full=False, strategy="reconcile", reconcile_interval_seconds=0
+    )
+    assert first.changed == 8
+    assert first.incremental is False
+    assert get_last_full_at(db_session, "products") is not None
+
+    last_full_before = get_last_full_at(db_session, "products")
+    second = await sync_products(
+        db_session, busy_client, full=False, strategy="reconcile", reconcile_interval_seconds=0
+    )
+    assert second.changed == 8
+    assert second.incremental is False
+    assert get_last_full_at(db_session, "products") is not None
+
+    assert get_last_stamp(db_session, "products") >= 40
+    assert get_last_full_at(db_session, "products") >= last_full_before
 
 
 async def test_sync_material_centers_full_then_incremental_is_near_zero(
