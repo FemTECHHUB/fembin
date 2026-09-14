@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
@@ -207,6 +207,27 @@ def _map_item_fields(parsed: XmlValue, *, code: int) -> _ItemDetail:
         item_group=str(item.get("ParentGroup") or UNCATEGORISED),
         tracks_stock=item.get("DoNotMaintainStkBal") != "True",
     )
+
+
+def apply_live_product_snapshot(session: Session, *, code: int, name: str, price: Decimal) -> None:
+    """Opportunistically freshens an existing product row with data a caller already
+    paid a live BUSY GetMasterXML call for — currently the Sale Quotation worker's
+    per-item verification (app/domain/orders/quotations.py), which needs that same live
+    read anyway for correctness (see its module docstring). Reusing it here means the
+    periodic catalog sync loop doesn't have to poll as aggressively to keep the POS
+    display fresh — a busy item effectively gets a free extra sync every time it's
+    quoted, on top of the regular schedule.
+
+    Update-only, never inserts: the item must already exist locally for a quotation to
+    have referenced it via a real busy_code in the first place (CLAUDE.md §2.4 — we
+    never delete rows, so "exists but stale" is the only reachable state, not
+    "missing")."""
+    session.execute(
+        update(Product)
+        .where(Product.busy_code == code)
+        .values(name=name, price=price, updated_at=func.now())
+    )
+    session.commit()
 
 
 async def sync_products(

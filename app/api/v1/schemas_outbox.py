@@ -16,6 +16,9 @@ class QuotationItemIn(BaseModel):
     qty: Decimal
     price: Decimal
     amount: Decimal
+    # Stable identity used to re-resolve the current name at post time (a queued job can
+    # outlive a BUSY rename) — optional only so an older/unpatched client doesn't 422.
+    busy_code: int | None = None
 
 
 class QuotationCreateRequest(BaseModel):
@@ -23,10 +26,10 @@ class QuotationCreateRequest(BaseModel):
     # request with the same key returns the existing job instead of double-posting
     # (CLAUDE.md §2.2).
     idempotency_key: str
-    vch_series_name: str = "Main"
-    # e.g. "RCC" for the "Main" series — company-specific and not derivable from BUSY
-    # (CLAUDE.md §8), so there's no safe default; the caller must know their own prefix.
-    vch_no_prefix: str
+    # vch_series_name/vch_no_prefix are deliberately NOT client-supplied fields — same
+    # reasoning as material_center_name below: resolved server-side per the caller's own
+    # branch (app/domain/catalog/vch_series.py), never a client-typed or hardcoded value.
+    # See app/api/v1/quotations.py.
     date: str  # DD-MM-YYYY
     sale_type_name: str
     customer_name: str

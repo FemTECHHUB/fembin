@@ -20,7 +20,6 @@ from app.main import app
 def _quotation_body(idempotency_key: str, *, sales_person_id: int) -> dict[str, object]:
     return {
         "idempotency_key": idempotency_key,
-        "vch_no_prefix": "RCC",
         "date": "15-08-2026",
         "sale_type_name": "Repair",
         "customer_name": "Amit Gupta",
@@ -144,7 +143,13 @@ def test_list_sale_quotations_is_scoped_to_the_caller_material_center(
 ) -> None:
     """A second user tied to a different branch must never see the first user's
     quotations — proves the material-center tie is enforced, not just recorded."""
-    other_center = MaterialCenter(busy_code=1155, name="Repair Centre Taiwo", is_active=True)
+    other_center = MaterialCenter(
+        busy_code=1155,
+        name="Repair Centre Taiwo",
+        is_active=True,
+        vch_series_name="RC Taiwo",
+        vch_no_prefix="JCT",
+    )
     db_session.add(other_center)
     db_session.commit()
 

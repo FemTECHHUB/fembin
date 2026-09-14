@@ -44,6 +44,15 @@ class MaterialCenter(Base):
     alias: Mapped[str | None] = mapped_column(String(64), default=None)
     parent_group: Mapped[str | None] = mapped_column(String(255), default=None)
     is_active: Mapped[bool] = mapped_column(default=True)
+    # Which BUSY Voucher Series (MasterType=21) this branch's Sale Quotations post
+    # under, and that series' real numbering prefix (e.g. "RCC" for series "Main") —
+    # never hardcoded/typed in by a human. Both resolved automatically by reading this
+    # branch's own most recent real voucher in BUSY (app/domain/catalog/vch_series.py)
+    # — this is what BUSY itself is actually doing, not a guess or a static mapping
+    # that would need updating by hand for every new BUSY installation/branch.
+    vch_series_name: Mapped[str | None] = mapped_column(String(255), default=None)
+    vch_no_prefix: Mapped[str | None] = mapped_column(String(32), default=None)
+    vch_series_resolved_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

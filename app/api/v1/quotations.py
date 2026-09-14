@@ -4,9 +4,14 @@ BUSY-touching endpoints elsewhere which hand off via BackgroundTasks instead.
 
 Every route requires an authenticated user (CurrentUser, app/api/v1/deps.py): the material
 center on the quotation is always the caller's own assigned branch (CLAUDE.md NFR6), never
-client-supplied, and the listing is scoped to that same branch. `sales_person_id` must
-match a real, active BUSY Executive (app/domain/catalog/queries.py's `get_salesman`) —
-that master is synced read-only from BUSY, not something this app creates."""
+client-supplied, and the listing is scoped to that same branch. Same for the voucher
+series/prefix — resolved automatically per branch from BUSY's own transaction history
+(app/domain/catalog/vch_series.py), never a client-supplied or hardcoded value; a branch
+whose series hasn't resolved yet is rejected here rather than guessed (no BUSY call from
+this handler either way — resolution happens in the background catalog sync, CLAUDE.md
+§2.1/§2.2, this route stays a plain local DB insert). `sales_person_id` must match a real,
+active BUSY Executive (app/domain/catalog/queries.py's `get_salesman`) — that master is
+synced read-only from BUSY, not something this app creates."""
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -42,6 +47,17 @@ def create_sale_quotation_route(
             status.HTTP_409_CONFLICT,
             "your assigned material center no longer exists in our mirror",
         )
+    if material_center.vch_series_name is None or material_center.vch_no_prefix is None:
+        # Not yet resolved by the background catalog sync (app/domain/catalog/
+        # vch_series.py) — typically a brand-new branch with no BUSY voucher history
+        # yet to derive it from. Reject rather than fall back to another branch's
+        # series (CLAUDE.md NFR6 — every action must resolve to the caller's own real
+        # branch, never a guess).
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "your branch's voucher series hasn't been set up in BUSY yet — post one "
+            "voucher for this branch first, or contact an admin",
+        )
 
     sales_person = get_salesman(db, body.sales_person_id)
     if sales_person is None or not sales_person.is_active:
@@ -53,8 +69,8 @@ def create_sale_quotation_route(
         )
 
     request = QuotationRequest(
-        vch_series_name=body.vch_series_name,
-        vch_no_prefix=body.vch_no_prefix,
+        vch_series_name=material_center.vch_series_name,
+        vch_no_prefix=material_center.vch_no_prefix,
         date=body.date,
         sale_type_name=body.sale_type_name,
         customer_name=body.customer_name,
@@ -66,6 +82,7 @@ def create_sale_quotation_route(
                 qty=item.qty,
                 price=item.price,
                 amount=item.amount,
+                busy_code=item.busy_code,
             )
             for item in body.items
         ],

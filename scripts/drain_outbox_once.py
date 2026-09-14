@@ -22,17 +22,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.config import get_settings
-from app.db.session import SessionLocal
-from app.logging_config import setup_logging
-from app.outbox.worker import drain_outbox
-
 # Job handlers register themselves as an import side effect (register_handler calls at
 # module scope). app.main triggers this by importing the API routes, which import the
 # domain modules — a standalone script never touches those routes, so it must import
 # the domain modules directly or every job fails with "Unknown job_type" without ever
 # attempting the real BUSY call.
 import app.domain.orders.quotations  # noqa: F401
+from app.config import get_settings
+from app.db.session import SessionLocal
+from app.logging_config import setup_logging
+from app.outbox.worker import drain_outbox
 
 logger = logging.getLogger("scripts.drain_outbox_once")
 

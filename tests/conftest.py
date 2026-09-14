@@ -119,8 +119,17 @@ def db_session() -> Iterator[Session]:
 @pytest.fixture
 def material_center(db_session: Session) -> MaterialCenter:
     """A real-shaped branch (matches the live "Main Store", busy_code=201) for tests that
-    need a user tied to one."""
-    mc = MaterialCenter(busy_code=201, name="Main Store", is_active=True)
+    need a user tied to one. Voucher series/prefix pre-resolved (matches the real
+    confirmed Main -> RCC mapping, CLAUDE.md §8) so quotation tests don't need to
+    exercise the live BUSY resolution path (app/domain/catalog/vch_series.py) just to
+    get past the "series not yet resolved" guard in app/api/v1/quotations.py."""
+    mc = MaterialCenter(
+        busy_code=201,
+        name="Main Store",
+        is_active=True,
+        vch_series_name="Main",
+        vch_no_prefix="RCC",
+    )
     db_session.add(mc)
     db_session.commit()
     db_session.refresh(mc)

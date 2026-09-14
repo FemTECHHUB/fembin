@@ -215,6 +215,74 @@ class MockBusyHandler(BaseHTTPRequestHandler):
                     },
                 ]
             )
+        if re.search(r"MasterType\s*=\s*21", qry, re.IGNORECASE):
+            # Voucher Series master — app/domain/catalog/vch_series.py. Filtered by
+            # Code, same as real BUSY's WHERE clause would — a mock that ignored the
+            # filter and returned every series regardless would let a caller bug (e.g.
+            # trusting row order instead of matching Code) go uncaught.
+            # Code 303 deliberately absent — a voucher can reference a series code
+            # that isn't in this list (exercises the "series not found" rejection).
+            all_series = [
+                {"Code": "301", "Name": "Main"},
+                {"Code": "302", "Name": "RC Taiwo"},
+                {"Code": "305", "Name": "RC Taiwo Diagnosis"},
+            ]
+            code_match = re.search(r"Code\s*=\s*(\d+)", qry)
+            if code_match:
+                wanted = code_match.group(1)
+                return _rowset([s for s in all_series if s["Code"] == wanted])
+            return _rowset(all_series)
+        if "Tran1" in qry and re.search(r"MasterCode2\s*=\s*(\d+)", qry):
+            # Per-branch voucher history — app/domain/catalog/vch_series.py resolves a
+            # branch's real series/prefix from this. Every row carries a VchType, and
+            # the fake data deliberately includes non-quotation rows to prove the real
+            # query's VchType filter is actually honored, not just present in the SQL
+            # text (a real bug this fixture caught once already, 2026-09-07: BUSY uses
+            # a different series per VchType for the same branch).
+            mc_match = re.search(r"MasterCode2\s*=\s*(\d+)", qry)
+            material_center_code = mc_match.group(1) if mc_match else ""
+            vch_type_match = re.search(r"VchType\s*=\s*(\d+)", qry)
+            wanted_vch_type = vch_type_match.group(1) if vch_type_match else None
+            fake_history = {
+                # 201 = "Main Store": a Sale (VchType=9) row that must be excluded, plus
+                # real Sale Quotations (VchType=26) under series 301 -> prefix "RCC".
+                "201": [
+                    {
+                        "VchCode": "1000",
+                        "VchType": "9",
+                        "VchSeriesCode": "999",
+                        "VchNo": "NOTAQUOTE-1",
+                    },
+                    {"VchCode": "1001", "VchType": "26", "VchSeriesCode": "301", "VchNo": "RCC-5"},
+                    {"VchCode": "1003", "VchType": "26", "VchSeriesCode": "301", "VchNo": "RCC-7"},
+                ],
+                # 1155 = "Repair Centre Taiwo": two *active* Sale Quotation series, same
+                # real-world shape as the live branch this was modeled on — series 302
+                # used 3x (the branch's general-purpose series) vs series 305 once (a
+                # specialised one). Must resolve to the majority, 302 -> "JCT", not
+                # whichever happens to have the highest VchCode.
+                "1155": [
+                    {"VchCode": "2001", "VchType": "26", "VchSeriesCode": "302", "VchNo": "JCT-1"},
+                    {"VchCode": "2002", "VchType": "26", "VchSeriesCode": "302", "VchNo": "JCT-2"},
+                    {"VchCode": "2003", "VchType": "26", "VchSeriesCode": "305", "VchNo": "RTD-1"},
+                    {"VchCode": "2004", "VchType": "26", "VchSeriesCode": "302", "VchNo": "JCT-3"},
+                ],
+                # 9999 = a branch whose only voucher's series (303) has no Name in the
+                # Voucher Series master above — exercises the "series found but unnamed"
+                # rejection path, distinct from "no history at all".
+                "9999": [
+                    {"VchCode": "3001", "VchType": "26", "VchSeriesCode": "303", "VchNo": "XYZ-1"}
+                ],
+                # 777 = a branch with real Sale history but zero Sale Quotation
+                # history — must still be treated as unresolved for quotations.
+                "777": [
+                    {"VchCode": "4001", "VchType": "9", "VchSeriesCode": "999", "VchNo": "SALE-1"}
+                ],
+            }
+            rows = fake_history.get(material_center_code, [])
+            if wanted_vch_type is not None:
+                rows = [r for r in rows if r["VchType"] == wanted_vch_type]
+            return _rowset(rows)
         if re.search(r"MasterType\s*=\s*11", qry, re.IGNORECASE):
             return _rowset(
                 [

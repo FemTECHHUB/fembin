@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.busy.client import BusyClient
 from app.config import Settings
 from app.domain.catalog.sync import SyncResult, sync_material_centers, sync_products, sync_salesmen
+from app.domain.catalog.vch_series import sync_vch_series
 from app.domain.catalog.woo_sync import WooPushResult, push_products_to_woocommerce
 from app.integrations.woocommerce import WooCommerceClient
 
@@ -61,6 +62,19 @@ async def run_catalog_sync(
                 elapsed,
             )
             busy_results.append(result)
+
+        # Resolves any material center that doesn't yet know its own real BUSY voucher
+        # series/prefix (app/domain/catalog/vch_series.py) — must run after material
+        # centers are synced (needs the rows to exist), before products (unrelated,
+        # just keeping BUSY calls grouped). Best-effort per branch; never raises.
+        session = session_factory()
+        try:
+            await sync_vch_series(session, client)
+        except Exception:
+            session.rollback()
+            logger.exception("Voucher series resolution failed")
+        finally:
+            session.close()
 
         # Products use a configurable strategy (config.py's catalog_sync_products_strategy)
         # rather than the Stamp-incremental gate — BUSY's Stamp doesn't advance on edits
