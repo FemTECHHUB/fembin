@@ -80,6 +80,18 @@ class WooCommerceClient:
         result: JsonDict = await self._request("POST", "/products", data)
         return result
 
+    async def find_product_by_sku(self, sku: str) -> JsonDict | None:
+        # WooCommerce rejects a create with a SKU that already exists on the store
+        # ("Invalid or duplicated SKU") rather than returning the existing product —
+        # callers use this first to tell "genuinely new" apart from "exists in
+        # WooCommerce but our local mirror lost track of its woo_product_id" (e.g. a
+        # dev DB reset against a store that already has real products from an earlier
+        # run).
+        matches = await self._request("GET", f"/products?sku={quote(sku)}")
+        if not isinstance(matches, list):
+            raise WooCommerceError("GET", "/products", 200, "unexpected response shape")
+        return matches[0] if matches else None
+
     async def update_product(self, product_id: int, data: JsonDict) -> JsonDict:
         result: JsonDict = await self._request("PUT", f"/products/{product_id}", data)
         return result

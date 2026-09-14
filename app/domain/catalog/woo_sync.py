@@ -25,7 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Category, Product, WooSyncState
-from app.integrations.woocommerce import WooCommerceClient, WooCommerceError
+from app.integrations.woocommerce import JsonDict, WooCommerceClient, WooCommerceError
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,27 @@ def set_seeded(session: Session) -> None:
     session.commit()
 
 
+async def _create_or_adopt_product(
+    woo: WooCommerceClient, product: Product, category_id: int, status: str
+) -> tuple[JsonDict, bool]:
+    """Create the product in WooCommerce — unless one with this SKU already exists there
+    (our local `woo_product_id` is the only place that link is remembered; if that row was
+    ever lost, e.g. a dev DB reset, WooCommerce still has the real product and rejects a
+    second create with "Invalid or duplicated SKU" instead of returning it). Look it up by
+    SKU first and adopt it rather than treat that as a failure.
+
+    Returns (product_dict, created) — `created=False` means an existing WooCommerce
+    product was adopted, not newly made."""
+    existing = await woo.find_product_by_sku(str(product.busy_code))
+    if existing is not None:
+        updated = await woo.update_product(
+            int(existing["id"]), _sync_payload(product, category_id, status=status)
+        )
+        return updated, False
+    created = await woo.create_product(_create_payload(product, category_id, status))
+    return created, True
+
+
 async def _ensure_category(session: Session, woo: WooCommerceClient, group_name: str) -> int:
     """Create the WooCommerce category once, then reuse it — never create a duplicate for
     the same group name (verified behavior in the prototype, don't regress it)."""
@@ -142,14 +163,17 @@ async def push_products_to_woocommerce(
                 continue
             try:
                 category_id = await _ensure_category(session, woo, product.item_group)
-                created_product = await woo.create_product(
-                    _create_payload(product, category_id, new_product_status)
+                result_product, was_created = await _create_or_adopt_product(
+                    woo, product, category_id, new_product_status
                 )
-                product.woo_product_id = int(created_product["id"])
+                product.woo_product_id = int(result_product["id"])
                 product.woo_synced_price = product.price
                 product.woo_synced_name = product.name
                 product.woo_hidden = False
-                created += 1
+                if was_created:
+                    created += 1
+                else:
+                    updated += 1
             except (WooCommerceError, httpx.HTTPError) as exc:
                 logger.warning(
                     "WooCommerce create failed for product %s: %s", product.busy_code, exc
@@ -246,16 +270,20 @@ async def push_products_by_code(
         try:
             if product.woo_product_id is None:
                 category_id = await _ensure_category(session, woo, product.item_group)
-                created_product = await woo.create_product(
-                    _create_payload(product, category_id, new_product_status)
+                result_product, was_created = await _create_or_adopt_product(
+                    woo, product, category_id, new_product_status
                 )
-                product.woo_product_id = int(created_product["id"])
+                product.woo_product_id = int(result_product["id"])
                 product.woo_synced_price = product.price
                 product.woo_synced_name = product.name
                 product.woo_hidden = False
                 session.commit()
                 results.append(
-                    WooPushItemResult(busy_code=code, name=product.name, action="created")
+                    WooPushItemResult(
+                        busy_code=code,
+                        name=product.name,
+                        action="created" if was_created else "updated",
+                    )
                 )
                 continue
 
