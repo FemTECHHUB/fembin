@@ -88,6 +88,7 @@ async def run_catalog_sync(
                 full=full,
                 strategy=settings.catalog_sync_products_strategy,
                 reconcile_interval_seconds=settings.catalog_sync_products_reconcile_interval_seconds,
+                detail_concurrency=settings.catalog_sync_products_detail_concurrency,
             )
         except Exception:
             session.rollback()

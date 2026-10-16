@@ -12,6 +12,7 @@ new checkpoint land together, or (on an uncaught exception) nothing does. Domain
 app/domain/catalog/scheduler.py for how these get triggered.
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -238,6 +239,7 @@ async def sync_products(
     strategy: str = "full",
     reconcile_interval_seconds: float = 3600.0,
     page_size: int = DEFAULT_PAGE_SIZE,
+    detail_concurrency: int = 8,
 ) -> SyncResult:
     """MasterType=6 — Items. One GetMasterXML call per *changed, active* item for the real
     fields; newly-blocked items are marked inactive without a detail call at all — nothing
@@ -264,7 +266,16 @@ async def sync_products(
 
     `full=True` force-overrides any strategy — full re-pull this run (CLAUDE.md §2.3's
     explicit escape hatch, e.g. first run / suspected drift). `last_stamp` and
-    `last_full_at` are both recorded for operational reporting (sync/status)."""
+    `last_full_at` are both recorded for operational reporting (sync/status).
+
+    Detail calls (one `GetMasterXML` per active item) run in bounded concurrent batches
+    of `detail_concurrency` rather than fully sequential — confirmed live 2026-10-15 at a
+    14k-item install: fully sequential made a single "full" pass take upwards of an hour,
+    which on a short `catalog_sync_interval_seconds` meant the sync loop was in a
+    near-permanent full-catalog scan against BUSY, the exact conditions behind the
+    repeated "session drops" in the gotchas table above. Keep this modest (BUSY is one
+    instance with no proven concurrent-request resilience) — it's relief, not a license
+    to go wide."""
     entity = "products"
 
     now = datetime.now(UTC).replace(tzinfo=None)  # naive UTC — MySQL DATETIME column
@@ -296,6 +307,7 @@ async def sync_products(
     max_stamp = since
     stored = 0
     failed = 0
+    active_rows = []
     for row in changed:
         code = int(row["Code"])
         max_stamp = max(max_stamp, int(row["Stamp"]))
@@ -319,35 +331,48 @@ async def sync_products(
             stored += 1
             continue
 
-        try:
-            detail_xml = await client.get_master_xml(code)
-            detail = _map_item_fields(parse_element_xml(detail_xml), code=code)
-        except (BusyError, httpx.HTTPError, ValueError) as exc:
-            logger.warning("GetMasterXML failed for item %s: %s", code, exc)
-            failed += 1
-            continue
+        active_rows.append(code)
 
-        _upsert_category(session, detail.item_group)
-        stmt = mysql_insert(Product).values(
-            busy_code=code,
-            name=detail.name,
-            price=detail.price,
-            unit=detail.unit,
-            item_group=detail.item_group,
-            tracks_stock=detail.tracks_stock,
-            is_active=True,
-        )
-        stmt = stmt.on_duplicate_key_update(
-            name=stmt.inserted.name,
-            price=stmt.inserted.price,
-            unit=stmt.inserted.unit,
-            item_group=stmt.inserted.item_group,
-            tracks_stock=stmt.inserted.tracks_stock,
-            is_active=stmt.inserted.is_active,
-            updated_at=func.now(),
-        )
-        session.execute(stmt)
-        stored += 1
+    # Detail calls run in bounded concurrent batches (see docstring) — DB writes stay
+    # fully sequential afterward, one batch's worth at a time, since a SQLAlchemy
+    # Session isn't safe for concurrent use.
+    for batch_start in range(0, len(active_rows), detail_concurrency):
+        batch = active_rows[batch_start : batch_start + detail_concurrency]
+
+        async def _fetch(code: int) -> tuple[int, _ItemDetail | None]:
+            try:
+                detail_xml = await client.get_master_xml(code)
+                return code, _map_item_fields(parse_element_xml(detail_xml), code=code)
+            except (BusyError, httpx.HTTPError, ValueError) as exc:
+                logger.warning("GetMasterXML failed for item %s: %s", code, exc)
+                return code, None
+
+        for code, detail in await asyncio.gather(*(_fetch(c) for c in batch)):
+            if detail is None:
+                failed += 1
+                continue
+
+            _upsert_category(session, detail.item_group)
+            stmt = mysql_insert(Product).values(
+                busy_code=code,
+                name=detail.name,
+                price=detail.price,
+                unit=detail.unit,
+                item_group=detail.item_group,
+                tracks_stock=detail.tracks_stock,
+                is_active=True,
+            )
+            stmt = stmt.on_duplicate_key_update(
+                name=stmt.inserted.name,
+                price=stmt.inserted.price,
+                unit=stmt.inserted.unit,
+                item_group=stmt.inserted.item_group,
+                tracks_stock=stmt.inserted.tracks_stock,
+                is_active=stmt.inserted.is_active,
+                updated_at=func.now(),
+            )
+            session.execute(stmt)
+            stored += 1
 
     _set_last_stamp(session, entity, max_stamp)
     if is_full_run:

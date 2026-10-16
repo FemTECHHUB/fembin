@@ -89,6 +89,10 @@ def catalog_sync_settings() -> Iterator[Settings]:
             woo_site_url=f"http://{woo_host}:{woo_port}",
             woo_consumer_key="test-key",
             woo_consumer_secret="test-secret",
+            # Explicit, not relying on the env default (which is "reconcile" for scale
+            # safety) — test_scheduler.py specifically exercises "full always re-pulls"
+            # behavior against this tiny ~9-item mock catalog.
+            catalog_sync_products_strategy="full",
         )
 
 

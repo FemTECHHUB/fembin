@@ -1,8 +1,11 @@
 """Drains the outbox queue — the only place BUSY writes actually happen (CLAUDE.md §2.2).
 
-Single-threaded, no concurrency: BUSY is one instance with no proven write concurrency —
-do not casually add a worker pool without re-reading PRD §11's open question on that. The
-select-then-update claim below is only race-free because of that single-worker assumption.
+Single-threaded, no concurrency *by design*: BUSY is one instance with no proven write
+concurrency — do not casually add a worker pool without re-reading PRD §11's open question
+on that. The claim in `process_next_job` uses `FOR UPDATE SKIP LOCKED` so it stays correct
+even if more than one worker process ends up running by accident (a production-readiness
+audit flagged this 2026-10-16 as a real risk, not just a style preference) — that's a
+safety net, not an invitation to actually run more than one.
 
 Failed jobs are NOT automatically retried by the periodic loop (they're left in
 `FAILED`, not put back to `QUEUED`) — that's deliberately out of scope here; PRD §6
@@ -50,12 +53,22 @@ register_handler("add_voucher", _handle_add_voucher)
 
 
 async def process_next_job(session: Session, busy: BusyClient) -> OutboxJob | None:
-    """Claim and process one queued job, oldest first. Returns None if the queue is empty."""
+    """Claim and process one queued job, oldest first. Returns None if the queue is empty.
+
+    `FOR UPDATE SKIP LOCKED` (not a plain SELECT) makes the claim itself race-free even if
+    more than one worker process ends up running — the module docstring used to rely
+    entirely on "there's only ever one worker" as the only thing preventing two processes
+    from claiming and double-posting the same job to BUSY. That assumption is easy to
+    break by accident when scaling horizontally (a second Passenger worker process with
+    OUTBOX_WORKER_ENABLED=true, or two overlapping cron runs of drain_outbox_once.py if a
+    slow BUSY call is still running when the next tick fires) — this makes it safe
+    regardless, not just correctly-configured."""
     job = session.scalar(
         select(OutboxJob)
         .where(OutboxJob.status == OutboxStatus.QUEUED)
         .order_by(OutboxJob.id)
         .limit(1)
+        .with_for_update(skip_locked=True)
     )
     if job is None:
         return None

@@ -84,7 +84,11 @@ async def test_push_to_woocommerce_route_requires_configured_woocommerce(
 ) -> None:
     with pytest.raises(HTTPException) as exc_info:
         await push_to_woocommerce_route(
-            WooPushRequest(busy_codes=[101]), db_session, Settings(), _fake_superadmin()
+            # Explicit, not a bare Settings() — pydantic-settings reads the real .env
+            # file regardless, so a dev machine with WOO_SITE_URL actually configured
+            # (e.g. for manual testing against a real WooCommerce site) would otherwise
+            # make this test exercise a real push instead of the "not configured" path.
+            WooPushRequest(busy_codes=[101]), db_session, Settings(woo_site_url=""), _fake_superadmin()
         )
     assert exc_info.value.status_code == 409
 

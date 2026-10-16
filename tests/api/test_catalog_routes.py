@@ -14,9 +14,20 @@ from sqlalchemy.orm import Session
 from app.api.v1.schemas import SyncRequest
 from app.api.v1.sync import trigger_products_sync
 from app.config import get_settings
-from app.db.models import Category, MaterialCenter, Product
+from app.db.models import Category, MaterialCenter, Product, User
 from app.domain.catalog.scheduler import run_catalog_sync
 from app.main import app
+
+
+def _fake_superadmin() -> User:
+    return User(
+        id=1,
+        username="admin",
+        password_hash="x",
+        full_name="Admin",
+        material_center_code=201,
+        is_superadmin=True,
+    )
 
 
 class _FakeBackgroundTasks:
@@ -38,6 +49,7 @@ def test_trigger_products_sync_hands_off_to_background_tasks_not_inline() -> Non
         SyncRequest(full=True),
         background_tasks,  # type: ignore[arg-type]
         settings=get_settings(),
+        _=_fake_superadmin(),
     )
 
     assert result.status == "scheduled"

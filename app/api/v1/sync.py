@@ -34,6 +34,7 @@ def trigger_products_sync(
     body: SyncRequest,
     background_tasks: BackgroundTasks,
     settings: SettingsDep,
+    _: SuperadminUser,
 ) -> SyncTriggerResponse:
     background_tasks.add_task(run_catalog_sync, SessionLocal, settings, full=body.full)
     return SyncTriggerResponse(status="scheduled")

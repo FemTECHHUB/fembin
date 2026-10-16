@@ -39,8 +39,19 @@ class Settings(BaseSettings):
     #                edit freshness for a bigger BUSY install. Since BUSY only reports a
     #                company-wide Stamp batch counter (not per-row versions), an edit can
     #                still appear one interval late.
-    catalog_sync_products_strategy: str = "full"
+    # Default is "reconcile", not "full" — confirmed live 2026-10-15 against a real
+    # 14,314-item BUSY install: "full" made one sync pass take upwards of an hour, which
+    # on a short interval meant a near-permanent full-catalog scan against BUSY and
+    # repeated session drops. "full" is still fine for a tiny catalog (this repo's own
+    # ~9-item test company uses it explicitly in tests/conftest.py), just don't rely on
+    # the default for that anymore — pass it explicitly.
+    catalog_sync_products_strategy: str = "reconcile"
     catalog_sync_products_reconcile_interval_seconds: float = 3600.0
+    # How many items' GetMasterXML detail calls run concurrently during products sync —
+    # confirmed live 2026-10-15 at a 14k-item install: fully sequential (the old
+    # behavior) made one "full" pass take upwards of an hour. Keep modest — BUSY is one
+    # instance with no proven concurrent-request resilience (CLAUDE.md §8).
+    catalog_sync_products_detail_concurrency: int = 8
 
     # WooCommerce REST API (Sprint 2) — dedicated Read/Write key, not an admin's (PRD §6).
     # Left blank, the woo-push step is skipped entirely rather than failing the whole sync.

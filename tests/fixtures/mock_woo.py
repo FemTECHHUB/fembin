@@ -65,6 +65,16 @@ class MockWooHandler(BaseHTTPRequestHandler):
                 matches = [c for c in self.server.categories if search in str(c["name"]).lower()]
             self._send_json(200, matches)
             return
+        if parsed.path == "/wp-json/wc/v3/products":
+            # Real WooCommerce: a SKU-filtered product list returns 200 + [] when nothing
+            # matches, never a 404 — a product-not-found-by-SKU is a normal, expected
+            # result (woo_sync.py's _create_or_adopt_product relies on exactly this to
+            # tell "genuinely new" apart from "exists, we just lost track of its ID").
+            sku = parse_qs(parsed.query).get("sku", [None])[0]
+            with self.server.lock:
+                matches = [p for p in self.server.products if sku is not None and p.get("sku") == sku]
+            self._send_json(200, matches)
+            return
         if parsed.path == "/__dump":
             with self.server.lock:
                 self._send_json(

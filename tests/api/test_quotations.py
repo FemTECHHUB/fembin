@@ -62,12 +62,15 @@ def test_create_sale_quotation_and_fetch_outbox_status(
         assert body["payload"]["sales_person_name"] == salesman.name
         job_id = body["id"]
 
-        status_resp = client.get(f"/api/v1/outbox/{job_id}")
+        status_resp = client.get(f"/api/v1/outbox/{job_id}", headers=auth_headers)
         assert status_resp.status_code == 200
         assert status_resp.json()["id"] == job_id
 
-        missing_resp = client.get("/api/v1/outbox/999999")
+        missing_resp = client.get("/api/v1/outbox/999999", headers=auth_headers)
         assert missing_resp.status_code == 404
+
+        unauthenticated_resp = client.get(f"/api/v1/outbox/{job_id}")
+        assert unauthenticated_resp.status_code == 401
 
 
 def test_create_sale_quotation_rejects_unknown_sales_person(
