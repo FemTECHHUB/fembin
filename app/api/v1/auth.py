@@ -2,9 +2,10 @@
 (locked down 2026-08-20, at explicit request — the first superadmin must be created via
 scripts/create_superadmin.py, not over HTTP, to avoid a self-service admin hole)."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api.v1.deps import CurrentUser, DbSession, SettingsDep, SuperadminUser
+from app.config import get_settings
 from app.api.v1.schemas_auth import (
     CurrentUserOut,
     LoginRequest,
@@ -21,6 +22,7 @@ from app.domain.auth.users import (
     authenticate_user,
     create_user,
 )
+from app.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,7 +48,10 @@ def create_user_route(body: UserCreateRequest, db: DbSession, _: SuperadminUser)
 
 
 @router.post("/login", response_model=TokenOut)
-def login_route(body: LoginRequest, db: DbSession, settings: SettingsDep) -> TokenOut:
+@limiter.limit(lambda: get_settings().login_rate_limit)
+def login_route(
+    request: Request, body: LoginRequest, db: DbSession, settings: SettingsDep
+) -> TokenOut:
     try:
         user = authenticate_user(db, username=body.username, password=body.password)
     except InvalidCredentialsError as exc:

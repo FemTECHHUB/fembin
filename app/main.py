@@ -10,6 +10,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1 import (
     admin,
@@ -27,6 +29,7 @@ from app.db.session import SessionLocal
 from app.domain.catalog.scheduler import catalog_sync_loop
 from app.logging_config import request_id_var, setup_logging
 from app.outbox.worker import outbox_worker_loop
+from app.rate_limit import limiter
 
 access_logger = logging.getLogger("app.access")
 
@@ -72,7 +75,19 @@ def create_app() -> FastAPI:
     settings = get_settings()
     setup_logging(settings.log_level)
 
-    app = FastAPI(title="BUSY Integration Platform", lifespan=_lifespan)
+    app = FastAPI(
+        title="BUSY Integration Platform",
+        lifespan=_lifespan,
+        # Public interactive API docs hand anyone who finds them a complete map of the
+        # API surface with no auth required — off by default in anything but dev
+        # (settings.api_docs_enabled, DEPLOYMENT.md's checklist enforces this).
+        docs_url="/docs" if settings.api_docs_enabled else None,
+        redoc_url="/redoc" if settings.api_docs_enabled else None,
+        openapi_url="/openapi.json" if settings.api_docs_enabled else None,
+    )
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     @app.middleware("http")
     async def add_request_id_and_log(

@@ -75,6 +75,16 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # FastAPI's interactive docs (/docs, /redoc, /openapi.json) hand anyone who finds
+    # them a complete map of the API surface, auth-free. Dev-friendly default like
+    # jwt_secret_key above — DEPLOYMENT.md's checklist requires this be set to false in
+    # production, same enforcement mechanism as that secret.
+    api_docs_enabled: bool = True
+
+    # Per-IP request budget for POST /auth/login (slowapi) — unlimited password-guessing
+    # attempts was a real gap found in a 2026-10-16 production-readiness audit.
+    login_rate_limit: str = "10/minute"
+
 
 @lru_cache
 def get_settings() -> Settings:

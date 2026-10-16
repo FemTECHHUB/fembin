@@ -131,9 +131,11 @@ committed `.env` file — this app root may be web-servable, and `.env` should n
 | `JWT_ALGORITHM` | `HS256` (default, fine to leave) |
 | `JWT_EXPIRE_MINUTES` | `480` (default — one shift) or adjust |
 | `CATALOG_SYNC_ENABLED` | `false` — cron handles this (step 9) |
+| `CATALOG_SYNC_PRODUCTS_STRATEGY` | `reconcile`, not `full` — confirmed live 2026-10-15 against a real 14k+-item install that `full` makes a single sync pass take upwards of an hour (CLAUDE.md §8). Only use `full` on an install with a genuinely tiny catalog. |
 | `OUTBOX_WORKER_ENABLED` | `false` — cron handles this (step 9) |
 | `WOO_SITE_URL` / `WOO_CONSUMER_KEY` / `WOO_CONSUMER_SECRET` | Only if the WooCommerce store exists yet — leave blank otherwise, the push is skipped cleanly rather than failing |
 | `LOG_LEVEL` | `INFO` |
+| `API_DOCS_ENABLED` | **`false`** — a 2026-10-16 production-readiness audit flagged `/docs`/`/redoc`/`/openapi.json` as handing anyone who finds them a complete, auth-free map of the API surface. Leave `true` only on a staging/dev deployment. |
 
 - [ ] Every value above is a **real production value**, not copied from `.env.example`.
 - [ ] Restart the app (button in Setup Python App, or `touch tmp/restart.txt` in the app
@@ -228,6 +230,13 @@ cPanel → Cron Jobs. Use the **full venv python path**, not a bare `python`:
       HTTP actually redirects to HTTPS, not just that HTTPS *works* alongside plain HTTP.
 - [ ] **`JWT_SECRET_KEY` is the real generated one from step 5**, confirmed by checking
       the environment variables panel, not assumed.
+- [ ] **`API_DOCS_ENABLED=false`** and **`CATALOG_SYNC_PRODUCTS_STRATEGY=reconcile`**
+      (not `full`, unless the catalog is genuinely tiny) — both confirmed in the
+      environment variables panel, not assumed. Verify by actually hitting
+      `GET /docs` and confirming it 404s.
+- [ ] Hit `POST /api/v1/sync/products` and `GET /api/v1/outbox/1` with no `Authorization`
+      header — both must return 401, not succeed. These were unauthenticated in this
+      codebase until a 2026-10-16 audit; confirm the fix actually shipped, don't assume.
 - [ ] **BUSY's port 981 is restricted to this server's outbound IP**, not open to the
       internet — this is Sprint 5's NFR7 in `docs/sprints/sprint-05-pilot-rollout-hardening.md`,
       still unresolved as of this checklist being written. Verify with an actual external
