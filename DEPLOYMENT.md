@@ -208,6 +208,31 @@ cPanel → Cron Jobs. Use the **full venv python path**, not a bare `python`:
 - [ ] After ~2 minutes, check `logs/outbox.log` shows real run output, not silence or
       Python tracebacks.
 
+### 9a. Near-immediate outbox draining (cron's 1-minute floor isn't actually the floor)
+
+The `drain_outbox_once.py` line above only runs once per minute, so a submitted
+quotation can sit `queued` for up to ~60s before it's even attempted. For a cashier
+waiting on a receipt, that's slow. `scripts/outbox_drain_loop.sh` already exists for
+exactly this — it re-drains every ~3s for ~55s, then exits just before the next minute
+tick, so the effective wait drops to a few seconds instead of up to a minute. Use
+`flock` so a slow-running instance can never overlap with the next cron tick (required:
+`VchNo` is computed sequentially, one job at a time — two drainers running at once is
+unsafe, not just wasteful):
+
+```
+* * * * * flock -n /tmp/femtech-outbox-drain.lock /home/youruser/app_dir/scripts/outbox_drain_loop.sh >> /home/youruser/app_dir/logs/outbox.log 2>&1
+```
+
+Replace the plain `drain_outbox_once.py` cron line above with this one (don't run both
+— they'd double-drain the same queue). The script already has the real venv path
+baked in (`source .../activate`), so the cron line itself doesn't need the venv python
+path like the other two do.
+
+`scripts/catalog_sync_loop.sh` is the same idea for catalog sync (re-syncs every ~5s
+instead of waiting a full cron tick) — only worth switching to if you actually need
+catalog freshness tighter than every 10 minutes; the outbox side is the one that
+matters for a cashier waiting in real time.
+
 ---
 
 ## 10. Verify the deployed app for real
